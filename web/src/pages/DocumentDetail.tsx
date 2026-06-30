@@ -1,0 +1,535 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { api, apiError, unwrap } from "../lib/api";
+import { useAuth } from "../lib/auth";
+import { Modal, Spinner, StatusBadge, useToast } from "../components/ui";
+import { PdfCanvas, Overlay } from "../components/PdfCanvas";
+
+export default function DocumentDetail() {
+  const { id } = useParams();
+  const { me, can, refresh } = useAuth();
+  const toast = useToast();
+  const [doc, setDoc] = useState<any>(null);
+  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
+  const [overlays, setOverlays] = useState<Overlay[]>([]);
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [showSubmit, setShowSubmit] = useState(false);
+  const [showApply, setShowApply] = useState(false);
+  const [verify, setVerify] = useState<any>(null);
+  const [pageCount, setPageCount] = useState(1);
+  const nav = useNavigate();
+
+  const load = async () => {
+    const d = await unwrap(api.get(`/documents/${id}`));
+    setDoc(d);
+    const kind = d.status === "COMPLETED" ? "final" : "converted";
+    try {
+      const res = await api.get(`/documents/${id}/view/${kind}`, { responseType: "arraybuffer" });
+      setPdfData(res.data as ArrayBuffer);
+      const pc = parseInt(res.headers["x-page-count"] || "1", 10);
+      setPageCount(isNaN(pc) ? 1 : pc);
+    } catch { setPdfData(null); }
+    // Overlay placed signatures/stamps on the working copy (the final PDF already
+    // has them baked in, so only overlay before completion).
+    const pls = (d.placements || []) as any[];
+    if (d.status !== "COMPLETED" && pls.length) {
+      const loaded = await Promise.all(pls.map(async (p) => {
+        try {
+          const r = await api.get(`/documents/${id}/placements/${p.id}/image`, { responseType: "blob" });
+          return { id: p.id, page: p.page, x: p.x, y: p.y, width: p.width, height: p.height, imageUrl: URL.createObjectURL(r.data) } as Overlay;
+        } catch { return null; }
+      }));
+      setOverlays((prev) => { prev.forEach((o) => URL.revokeObjectURL(o.imageUrl)); return []; });
+      setOverlays(loaded.filter(Boolean) as Overlay[]);
+    } else {
+      setOverlays((prev) => { prev.forEach((o) => URL.revokeObjectURL(o.imageUrl)); return []; });
+    }
+    unwrap(api.get(`/documents/${id}/verify`)).then(setVerify).catch(() => setVerify(null));
+  };
+  useEffect(() => { load(); }, [id]);
+  useEffect(() => () => { setOverlays((prev) => { prev.forEach((o) => URL.revokeObjectURL(o.imageUrl)); return []; }); }, []);
+
+  if (!doc) return <Spinner />;
+
+  const myStep = doc.steps.find((s: any) => s.signatory.id === me!.id);
+  const canDecide = myStep && myStep.status === "PENDING" && ["PENDING_APPROVAL", "PARTIALLY_APPROVED"].includes(doc.status);
+  const myApproved = myStep && myStep.status === "APPROVED";
+  const canReopen = myApproved && !["CANCELLED", "REJECTED", "DRAFT"].includes(doc.status);
+  const isOwner = doc.uploadedBy?.id === me!.id;
+  const canSubmit = isOwner && ["DRAFT", "UPLOADED", "PDF_CONVERTED"].includes(doc.status);
+  const myPlacements = (doc.placements || []).filter((p: any) => p.placedById === me!.id);
+
+  const decide = async (decision: "APPROVE" | "REJECT") => {
+    setBusy(true);
+    try {
+      await api.post(`/documents/${id}/decision`, { decision, comment });
+      toast(`Document ${decision === "APPROVE" ? "approved" : "rejected"}`);
+      setComment("");
+      await load();
+    } catch (e) { toast(apiError(e), true); } finally { setBusy(false); }
+  };
+
+  const reopen = async () => {
+    setBusy(true);
+    try {
+      await api.post(`/documents/${id}/reopen`);
+      toast("Reopened — edit your signature/stamp and re-approve");
+      await load();
+    } catch (e) { toast(apiError(e), true); } finally { setBusy(false); }
+  };
+
+  const copyDoc = async () => {
+    setBusy(true);
+    try {
+      const newDoc = await unwrap(api.post(`/documents/${id}/copy`));
+      toast("Document copied — redirecting to the copy");
+      nav(`/documents/${newDoc.id}`);
+    } catch (e) { toast(apiError(e), true); } finally { setBusy(false); }
+  };
+
+  const removePlacement = async (pid: string) => {
+    try { await api.delete(`/documents/${id}/placements/${pid}`); toast("Removed"); await load(); }
+    catch (e) { toast(apiError(e), true); }
+  };
+
+  const download = async (kind: string) => {
+    try {
+      const res = await api.get(`/documents/${id}/download/${kind}`, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${doc.title}-${kind}`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) { toast(apiError(e), true); }
+  };
+
+  return (
+    <div>
+      <div className="between" style={{ marginBottom: 16 }}>
+        <div>
+          <h1 style={{ margin: 0 }}>{doc.title}</h1>
+          <div className="muted">{doc.profile?.name} · uploaded by {doc.uploadedBy.fullName}</div>
+        </div>
+        <StatusBadge status={doc.status} />
+      </div>
+
+      <div className="grid-main">
+        {/* PDF preview (pdf.js — renders in Electron too) */}
+        <div className="card" style={{ overflow: "hidden", minHeight: 560 }}>
+          <PdfCanvas data={pdfData} overlays={overlays} />
+        </div>
+
+        {/* Side panel */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Actions */}
+          <div className="card card-pad">
+            <h3>Actions</h3>
+            {canSubmit && <button className="btn btn-primary" style={{ width: "100%", marginBottom: 8 }} onClick={() => setShowSubmit(true)}>Submit for Approval</button>}
+            {isOwner && can("UPLOAD") && <button className="btn btn-ghost" style={{ width: "100%", marginBottom: 8 }} disabled={busy} onClick={copyDoc}>Copy &amp; Send Again</button>}
+            {canDecide && (
+              <>
+                {(can("SIGN") || can("USE_STAMP")) && <button className="btn btn-ghost" style={{ width: "100%", marginBottom: 8 }} onClick={() => setShowApply(true)}>✍ Apply Signature / Stamp</button>}
+                {myPlacements.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    {myPlacements.map((p: any) => (
+                      <div key={p.id} className="between" style={{ fontSize: 12, padding: "3px 0" }}>
+                        <span className="muted">{p.kind === "SIGNATURE" ? "Signature" : "Stamp"} · page {p.page}</span>
+                        <button className="btn btn-ghost btn-sm" onClick={() => removePlacement(p.id)}>Remove</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="field"><label>Comment (optional)</label><textarea rows={2} value={comment} onChange={(e) => setComment(e.target.value)} /></div>
+                <div className="row">
+                  {can("APPROVE") && <button className="btn btn-success grow" disabled={busy} onClick={() => decide("APPROVE")}>✓ Approve</button>}
+                  {can("REJECT") && <button className="btn btn-danger grow" disabled={busy} onClick={() => decide("REJECT")}>✕ Reject</button>}
+                </div>
+              </>
+            )}
+            {canReopen && !canDecide && (
+              <>
+                <p className="muted" style={{ margin: "0 0 8px" }}>You approved this document.</p>
+                <button className="btn btn-ghost" style={{ width: "100%" }} disabled={busy} onClick={reopen}>✎ Edit &amp; re-approve</button>
+              </>
+            )}
+            {!canSubmit && !canDecide && !canReopen && <p className="muted" style={{ margin: 0 }}>No actions available at this stage.</p>}
+            <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "14px 0" }} />
+            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Downloads</div>
+            <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => download("original")}>Original</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => download("converted")}>Converted PDF</button>
+              {doc.finalPdfPath && <button className="btn btn-ghost btn-sm" onClick={() => download("final")}>Final Signed PDF</button>}
+            </div>
+          </div>
+
+          {/* Integrity & signature verification */}
+          {verify && (
+            <div className="card card-pad">
+              <h3>Integrity & Signature</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+                <div>
+                  Signature type:{" "}
+                  <span className="badge" style={{ background: verify.signatureMethod === "DIGITAL" ? "var(--primary)" : "#1565c0" }}>
+                    {verify.signatureMethod === "DIGITAL" ? "Digital certificate" : "Image"}
+                  </span>
+                </div>
+                {verify.original && (
+                  <div>Original document: {verify.original.intact
+                    ? <span style={{ color: "var(--success)", fontWeight: 600 }}>✓ Unaltered</span>
+                    : <span style={{ color: "var(--danger)", fontWeight: 600 }}>✕ Tampered / changed</span>}</div>
+                )}
+                {verify.final && (
+                  <>
+                    <div>Final signed PDF: {verify.final.intact
+                      ? <span style={{ color: "var(--success)", fontWeight: 600 }}>✓ Verified / unaltered</span>
+                      : <span style={{ color: "var(--danger)", fontWeight: 600 }}>✕ Tampered — hash mismatch</span>}</div>
+                    {verify.final.digitallySigned && (
+                      <div style={{ color: "var(--success)" }}>🔒 Cryptographically signed (embedded PKCS#7)</div>
+                    )}
+                  </>
+                )}
+              </div>
+              <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }}
+                onClick={() => unwrap(api.get(`/documents/${id}/verify`)).then((v) => { setVerify(v); toast("Integrity re-checked"); }).catch((e) => toast(apiError(e), true))}>
+                ↻ Re-verify integrity
+              </button>
+            </div>
+          )}
+
+          {/* Approval steps */}
+          <div className="card card-pad">
+            <h3>Approval Workflow <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}>({doc.approvalMode})</span></h3>
+            <ol style={{ paddingLeft: 18, margin: 0 }}>
+              {doc.steps.map((s: any) => (
+                <li key={s.id} style={{ marginBottom: 8 }}>
+                  <strong>{s.signatory.fullName}</strong> — <StatusBadge status={s.status} />
+                  {s.approvalType && <span className="badge" style={{ background: "#1565c0", marginLeft: 6 }}>{s.approvalType.name}</span>}
+                  {s.comment && <div className="muted" style={{ fontSize: 12 }}>"{s.comment}"</div>}
+                </li>
+              ))}
+              {doc.steps.length === 0 && <span className="muted">Not yet submitted.</span>}
+            </ol>
+          </div>
+
+          {/* History */}
+          <div className="card card-pad">
+            <h3>History & Audit Trail</h3>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {doc.events?.map((e: any) => (
+                <li key={e.id} style={{ padding: "6px 0", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
+                  <strong>{e.action.replace(/_/g, " ")}</strong> {e.detail && <span className="muted">— {e.detail}</span>}
+                  <div className="muted" style={{ fontSize: 11 }}>{new Date(e.createdAt).toLocaleString()}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {showSubmit && <SubmitModal docId={id!} profileId={doc.profile.id} onClose={() => setShowSubmit(false)} onDone={() => { setShowSubmit(false); toast("Submitted for approval"); load(); }} onError={(m: string) => toast(m, true)} />}
+      {showApply && <ApplyMarkModal docId={id!} profileId={doc.profile.id} pageCount={pageCount} canSign={can("SIGN")} canStamp={can("USE_STAMP")} requestedType={myStep?.approvalType} onClose={() => setShowApply(false)} onDone={() => { setShowApply(false); toast("Applied to PDF"); load(); }} onError={(m: string) => toast(m, true)} />}
+    </div>
+  );
+}
+
+function SubmitModal({ docId, profileId, onClose, onDone, onError }: any) {
+  const [sigs, setSigs] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [types, setTypes] = useState<any[]>([]);
+  const [mode, setMode] = useState<"users" | "group">("users");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [sigTypes, setSigTypes] = useState<Record<string, string>>({}); // userId -> approvalTypeId
+  const [groupId, setGroupId] = useState("");
+  const [approvalMode, setApprovalMode] = useState("PARALLEL");
+  const [signatureMethod, setSignatureMethod] = useState("IMAGE");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    unwrap(api.get(`/lookups/profiles/${profileId}/signatories`)).then(setSigs).catch(() => {});
+    unwrap(api.get(`/lookups/profiles/${profileId}/groups`)).then(setGroups).catch(() => {});
+    unwrap(api.get(`/approval-types`)).then(setTypes).catch(() => {});
+  }, [profileId]);
+
+  const toggle = (id: string, on: boolean) => setSelected(on ? [...selected, id] : selected.filter((x) => x !== id));
+
+  const submit = async () => {
+    if (mode === "users" && selected.length === 0) return onError("Select at least one signatory");
+    if (mode === "group" && !groupId) return onError("Select a signature group");
+    setBusy(true);
+    try {
+      const base = mode === "group"
+        ? { signatureGroupId: groupId }
+        : { signatoryIds: selected, approvalMode, signatoryTypes: Object.fromEntries(selected.map((id) => [id, sigTypes[id]]).filter(([, v]) => v)) };
+      await api.post(`/documents/${docId}/submit`, { ...base, signatureMethod });
+      onDone();
+    } catch (e) { onError(apiError(e)); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal title="Submit for Approval" onClose={onClose}
+      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={submit}>Submit</button></>}>
+      <div className="row" style={{ marginBottom: 14 }}>
+        <label className="row" style={{ gap: 6 }}><input type="radio" style={{ width: "auto" }} checked={mode === "users"} onChange={() => setMode("users")} /> Pick signatories</label>
+        <label className="row" style={{ gap: 6 }}><input type="radio" style={{ width: "auto" }} checked={mode === "group"} onChange={() => setMode("group")} /> Signature group</label>
+      </div>
+      {mode === "users" ? (
+        <>
+          <div className="field"><label>Signatories &amp; the kind of approval you want from each</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {sigs.map((s) => {
+                const on = selected.includes(s.id);
+                return (
+                  <div key={s.id} className="row" style={{ gap: 8, alignItems: "center" }}>
+                    <label className="row grow" style={{ gap: 6 }}>
+                      <input type="checkbox" style={{ width: "auto" }} checked={on} onChange={(e) => toggle(s.id, e.target.checked)} /> {s.fullName}
+                    </label>
+                    {on && types.length > 0 && (
+                      <select style={{ width: 150, marginTop: 0 }} value={sigTypes[s.id] || ""} onChange={(e) => setSigTypes({ ...sigTypes, [s.id]: e.target.value })}>
+                        <option value="">Any approval</option>
+                        {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    )}
+                  </div>
+                );
+              })}
+              {sigs.length === 0 && <span className="muted">No other users in this profile.</span>}
+            </div>
+          </div>
+          {selected.length > 1 && (
+            <div className="field"><label>Approval order</label>
+              <select value={approvalMode} onChange={(e) => setApprovalMode(e.target.value)}>
+                <option value="PARALLEL">Parallel (all at once)</option>
+                <option value="SEQUENTIAL">Sequential (one after another)</option>
+              </select>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="field"><label>Signature group</label>
+          <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+            <option value="">— select —</option>
+            {groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({g.approvalMode})</option>)}
+          </select>
+        </div>
+      )}
+      <div className="field"><label>Signature type</label>
+        <select value={signatureMethod} onChange={(e) => setSignatureMethod(e.target.value)}>
+          <option value="IMAGE">Image stamp / handwritten signature (visual)</option>
+          <option value="DIGITAL">Digital certificate (cryptographic, tamper-evident)</option>
+        </select>
+        <p className="muted" style={{ fontSize: 12 }}>
+          {signatureMethod === "DIGITAL"
+            ? "A cryptographic PKCS#7 signature is embedded in the final PDF — any later change breaks it and is detectable."
+            : "Visual signature/stamp images are placed on the PDF. Integrity is still tracked via SHA-256 hashing."}
+        </p>
+      </div>
+    </Modal>
+  );
+}
+
+const POSITIONS: Record<string, { x: number; y: number }> = {
+  "bottom-right": { x: 0.6, y: 0.8 }, "bottom-left": { x: 0.08, y: 0.8 },
+  "top-right": { x: 0.6, y: 0.06 }, "top-left": { x: 0.08, y: 0.06 }, center: { x: 0.36, y: 0.45 },
+};
+
+// Apply a (preconfigured) signature or a company stamp during approval.
+function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, requestedType, onClose, onDone, onError }: any) {
+  const [kind, setKind] = useState<"SIGNATURE" | "STAMP">(canSign ? "SIGNATURE" : "STAMP");
+  const [marks, setMarks] = useState<any[]>([]);
+  const [markUrls, setMarkUrls] = useState<Record<string, string>>({});
+  const [selMark, setSelMark] = useState<string>("");
+  const [stamps, setStamps] = useState<any[]>([]);
+  const [stampId, setStampId] = useState("");
+  const [types, setTypes] = useState<any[]>([]);
+  const [allPages, setAllPages] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pos, setPos] = useState("saved");
+  const [adding, setAdding] = useState(false);
+  const [label, setLabel] = useState("Signature");
+  const [newType, setNewType] = useState<string>(requestedType?.id || "");
+  const [busy, setBusy] = useState(false);
+
+  const loadMarks = async () => {
+    const list = await unwrap(api.get("/account/marks")).catch(() => []);
+    setMarks(list);
+    // Auto-select the mark that matches the requested approval type, else the first.
+    const match = requestedType ? list.find((m: any) => m.approvalTypeId === requestedType.id) : null;
+    setSelMark((cur: string) => match?.id || cur || list[0]?.id || "");
+    const urls: Record<string, string> = {};
+    await Promise.all(list.map(async (m: any) => {
+      try { const r = await api.get(`/account/marks/${m.id}/image`, { responseType: "blob" }); urls[m.id] = URL.createObjectURL(r.data); } catch {}
+    }));
+    setMarkUrls(urls);
+  };
+
+  useEffect(() => {
+    unwrap(api.get(`/lookups/profiles/${profileId}/stamps`)).then((s) => { setStamps(s); setStampId(s[0]?.id || ""); }).catch(() => {});
+    unwrap(api.get(`/approval-types`)).then(setTypes).catch(() => {});
+    loadMarks();
+  }, [profileId]);
+
+  // Save a freshly drawn/uploaded signature into the user's library (tagged to a type).
+  const saveNewMark = async (blob: Blob) => {
+    const fd = new FormData();
+    fd.set("image", blob, "mark.png");
+    fd.set("label", label || "Signature");
+    fd.set("kind", "SIGNATURE");
+    if (newType) fd.set("approvalTypeId", newType);
+    const created = await unwrap(api.post("/account/marks", fd));
+    await loadMarks();
+    setSelMark(created.id);
+    setAdding(false);
+  };
+
+  const place = async () => {
+    setBusy(true);
+    try {
+      const pages = allPages && pageCount > 1 ? Array.from({ length: pageCount }, (_, i) => i + 1) : [page];
+      if (kind === "SIGNATURE") {
+        const mark = marks.find((m) => m.id === selMark);
+        if (!mark) throw new Error("Select or add a signature first");
+        const coords = pos === "saved" ? { x: mark.posX, y: mark.posY } : POSITIONS[pos];
+        const size = pos === "saved" ? { width: mark.width, height: mark.height } : { width: 0.24, height: 0.09 };
+        for (const pg of pages) {
+          await api.post(`/documents/${docId}/placements`, { kind: "SIGNATURE", savedMarkId: mark.id, page: pg, ...size, ...coords });
+        }
+      } else {
+        if (!stampId) throw new Error("Select a stamp");
+        const coords = pos === "saved" ? POSITIONS["bottom-right"] : POSITIONS[pos];
+        for (const pg of pages) {
+          await api.post(`/documents/${docId}/placements`, { kind: "STAMP", stampId, page: pg, width: 0.26, height: 0.12, ...coords });
+        }
+      }
+      onDone();
+    } catch (e: any) { onError(e?.response ? apiError(e) : e.message); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal title="Apply Signature / Stamp" onClose={onClose}
+      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={place}>Apply to PDF</button></>}>
+      {requestedType && (
+        <div className="card card-pad" style={{ padding: 10, marginBottom: 10, borderLeft: "4px solid #1565c0", fontSize: 13 }}>
+          Requested approval type: <strong>{requestedType.name}</strong>
+        </div>
+      )}
+      <div className="row" style={{ marginBottom: 12 }}>
+        {canSign && <label className="row" style={{ gap: 6 }}><input type="radio" style={{ width: "auto" }} checked={kind === "SIGNATURE"} onChange={() => setKind("SIGNATURE")} /> Signature</label>}
+        {canStamp && <label className="row" style={{ gap: 6 }}><input type="radio" style={{ width: "auto" }} checked={kind === "STAMP"} onChange={() => setKind("STAMP")} /> Company stamp</label>}
+      </div>
+
+      {kind === "SIGNATURE" ? (
+        <div className="field">
+          <label>Choose a saved signature</label>
+          {marks.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+              {marks.map((m) => (
+                <button key={m.id} type="button" onClick={() => setSelMark(m.id)}
+                  style={{ width: 110, padding: 6, border: `2px solid ${selMark === m.id ? "var(--primary)" : "var(--border)"}`, borderRadius: 8, background: "#fff", cursor: "pointer" }}>
+                  {markUrls[m.id] ? <img src={markUrls[m.id]} alt={m.label} style={{ width: "100%", height: 40, objectFit: "contain" }} /> : <div style={{ height: 40 }} className="muted">…</div>}
+                  <div style={{ fontSize: 11, marginTop: 4 }} className="muted">{m.label}</div>
+                  {m.approvalTypeId && <div style={{ fontSize: 10 }}><span className="badge" style={{ background: "#1565c0", fontSize: 9 }}>{types.find((t) => t.id === m.approvalTypeId)?.name || "type"}</span></div>}
+                </button>
+              ))}
+            </div>
+          )}
+          {!adding ? (
+            <button className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}>+ Add new signature</button>
+          ) : (
+            <div className="card" style={{ padding: 10, marginTop: 4 }}>
+              <input placeholder="Label (e.g. Signature, Initials)" value={label} onChange={(e) => setLabel(e.target.value)} style={{ marginBottom: 6 }} />
+              {types.length > 0 && (
+                <select value={newType} onChange={(e) => setNewType(e.target.value)} style={{ marginBottom: 6 }}>
+                  <option value="">For any approval type</option>
+                  {types.map((t) => <option key={t.id} value={t.id}>For "{t.name}" approvals</option>)}
+                </select>
+              )}
+              <SignaturePad onSave={saveNewMark} onError={onError} />
+              <button className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => setAdding(false)}>Cancel</button>
+            </div>
+          )}
+          {marks.length === 0 && !adding && <p className="muted" style={{ fontSize: 12 }}>No saved signatures yet — add one.</p>}
+        </div>
+      ) : (
+        <div className="field"><label>Stamp</label>
+          <select value={stampId} onChange={(e) => setStampId(e.target.value)}>{stamps.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+          {stamps.length === 0 && <p className="muted" style={{ fontSize: 12 }}>No stamps available in this profile.</p>}
+        </div>
+      )}
+
+      <div className="row">
+        {pageCount > 1 ? (
+          <div className="field grow">
+            <label>Pages</label>
+            <label className="row" style={{ gap: 6, marginBottom: 6 }}>
+              <input type="checkbox" style={{ width: "auto" }} checked={allPages} onChange={(e) => setAllPages(e.target.checked)} />
+              All {pageCount} pages
+            </label>
+            {!allPages && <input type="number" min={1} max={pageCount} value={page} onChange={(e) => setPage(Number(e.target.value))} />}
+          </div>
+        ) : (
+          <div className="field grow"><label>Page</label><input type="number" min={1} value={page} onChange={(e) => setPage(Number(e.target.value))} /></div>
+        )}
+        <div className="field grow"><label>Position</label>
+          <select value={pos} onChange={(e) => setPos(e.target.value)}>
+            {kind === "SIGNATURE" && <option value="saved">Saved settings</option>}
+            <option value="bottom-right">Bottom right</option><option value="bottom-left">Bottom left</option>
+            <option value="top-right">Top right</option><option value="top-left">Top left</option><option value="center">Center</option>
+          </select>
+        </div>
+      </div>
+      <p className="muted" style={{ fontSize: 12 }}>Shows on the PDF preview immediately and is baked into the final signed PDF on completion.</p>
+    </Modal>
+  );
+}
+
+// Draw-to-sign pad (or upload an image of a signature).
+function SignaturePad({ onSave, onError }: { onSave: (b: Blob) => Promise<void>; onError: (m: string) => void }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  const [saved, setSaved] = useState(false);
+
+  const pos = (e: any) => {
+    const c = ref.current!; const r = c.getBoundingClientRect();
+    const t = e.touches?.[0];
+    return { x: (t ? t.clientX : e.clientX) - r.left, y: (t ? t.clientY : e.clientY) - r.top };
+  };
+  const start = (e: any) => { drawing.current = true; const ctx = ref.current!.getContext("2d")!; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+  const move = (e: any) => {
+    if (!drawing.current) return;
+    e.preventDefault();
+    const ctx = ref.current!.getContext("2d")!; const p = pos(e);
+    ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.strokeStyle = "#1e1f1e";
+    ctx.lineTo(p.x, p.y); ctx.stroke();
+  };
+  const end = () => { drawing.current = false; };
+  const clear = () => { const c = ref.current!; c.getContext("2d")!.clearRect(0, 0, c.width, c.height); setSaved(false); };
+
+  const save = async () => {
+    const c = ref.current!;
+    c.toBlob(async (blob) => {
+      if (!blob) return onError("Could not capture signature");
+      try { await onSave(blob); setSaved(true); } catch (e: any) { onError(apiError(e)); }
+    }, "image/png");
+  };
+
+  const upload = async (file: File | null) => { if (file) try { await onSave(file); setSaved(true); } catch (e: any) { onError(apiError(e)); } };
+
+  return (
+    <div>
+      <canvas ref={ref} width={440} height={150}
+        style={{ width: "100%", height: 150, border: "1px dashed var(--border)", borderRadius: 8, background: "#fff", touchAction: "none", cursor: "crosshair" }}
+        onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
+        onTouchStart={start} onTouchMove={move} onTouchEnd={end} />
+      <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: "wrap" }}>
+        <button className="btn btn-primary btn-sm" onClick={save}>{saved ? "✓ Saved" : "Save signature"}</button>
+        <button className="btn btn-ghost btn-sm" onClick={clear}>Clear</button>
+        <label className="btn btn-ghost btn-sm" style={{ cursor: "pointer" }}>Upload image
+          <input type="file" accept="image/png,image/jpeg" style={{ display: "none" }} onChange={(e) => upload(e.target.files?.[0] || null)} />
+        </label>
+      </div>
+      <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>Draw your signature above, then Save — or upload a signature image.</p>
+    </div>
+  );
+}

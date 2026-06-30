@@ -1,0 +1,23 @@
+version: "3.9"
+
+# Spins up PostgreSQL for eSign MICO360.
+# Usage:  docker compose up -d
+# Then point server/.env DATABASE_URL at:
+#   postgresql://mico:mico_secret@localhost:5432/esign_mico360?schema=public
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: esign-mico360-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mico
+      POSTGRES_PASSWORD: mico_secret
+      POSTGRES_DB: esign_mico360
+    ports:
+      - "5432:5432"
+    volumes:
+      - mico_pgdata:/var/lib/postgresql/data
+
+volumes:
+  mico_pgdata:
