@@ -81,9 +81,9 @@ export default function Documents() {
               </select>
             </div>
             <div className="field" style={{ margin: 0 }}>
-              <label>Profile</label>
+              <label>Company</label>
               <select value={profileFilter} onChange={(e) => setProfileFilter(e.target.value)}>
-                <option value="">All profiles</option>
+                <option value="">All companies</option>
                 {profileOpts.map(([id, name]) => <option key={id as string} value={id as string}>{name as string}</option>)}
               </select>
             </div>
@@ -109,7 +109,7 @@ export default function Documents() {
         onRefresh={load}
         rowKey={(d: any) => d.id}
         onRowClick={(d: any) => nav(`/documents/${d.id}`)}
-        searchPlaceholder="Search title, profile, requester…"
+        searchPlaceholder="Search title, company, requester…"
         searchValue={(d: any) => `${d.title} ${d.profile?.name ?? ""} ${d.uploadedBy?.fullName ?? ""}`}
         filters={[]}
         emptyText="No documents match your search."
@@ -133,7 +133,7 @@ export default function Documents() {
               </div>
             </div>
           ) },
-          { key: "profile", header: "Profile", value: (d: any) => d.profile?.name ?? "", render: (d: any) => d.profile?.name },
+          { key: "profile", header: "Company", value: (d: any) => d.profile?.name ?? "", render: (d: any) => d.profile?.name },
           { key: "uploadedBy", header: "Requester", value: (d: any) => d.uploadedBy?.fullName ?? "", render: (d: any) => d.uploadedBy?.fullName },
           { key: "status", header: "Status", render: (d: any) => <StatusBadge status={d.status} /> },
           { key: "updatedAt", header: "Updated", value: (d: any) => d.updatedAt, render: (d: any) => <span className="muted">{new Date(d.updatedAt).toLocaleDateString()}</span> },
@@ -174,7 +174,7 @@ function UploadModal({ profiles, onClose, onDone, onError }: { profiles: any[]; 
   const submit = async () => {
     if (!title.trim()) return onError("Title is required");
     if (!file) return onError("A file is required");
-    if (!profileId) return onError("A profile is required");
+    if (!profileId) return onError("A company is required");
     setBusy(true);
     try {
       const fd = new FormData();
@@ -199,7 +199,7 @@ function UploadModal({ profiles, onClose, onDone, onError }: { profiles: any[]; 
   return (
     <Modal title="Upload Document" onClose={onClose}
       footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy || profiles.length === 0} onClick={submit}>{busy ? "Uploading…" : "Upload"}</button></>}>
-      {profiles.length === 0 && <p className="muted" style={{ marginBottom: 10 }}>You are not assigned to any active profile. Ask an admin to add you to a profile first.</p>}
+      {profiles.length === 0 && <p className="muted" style={{ marginBottom: 10 }}>You are not assigned to any active company. Ask an admin to add you to a company first.</p>}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
         <div className="field" style={{ gridColumn: "1 / -1" }}>
@@ -207,7 +207,7 @@ function UploadModal({ profiles, onClose, onDone, onError }: { profiles: any[]; 
           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
         </div>
         <div className="field">
-          <label>Profile</label>
+          <label>Company</label>
           <select value={profileId} onChange={(e) => setProfileId(e.target.value)}>
             {profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>

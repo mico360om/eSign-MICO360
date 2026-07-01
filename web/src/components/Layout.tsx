@@ -8,7 +8,7 @@ const NAV: NavItem[] = [
   { to: "/", label: "Dashboard", ico: "▦", perm: "VIEW_REPORTS" },
   { to: "/documents", label: "Documents", ico: "📄" },
   { to: "/users", label: "Users", ico: "👤", perm: "MANAGE_USERS" },
-  { to: "/profiles", label: "Profiles", ico: "🗂", perm: "MANAGE_PROFILES" },
+  { to: "/profiles", label: "Companies", ico: "🗂", perm: "MANAGE_PROFILES" },
   { to: "/roles", label: "Roles & Permissions", ico: "🔑", perm: "MANAGE_ROLES" },
   { to: "/signature-groups", label: "Signature Groups", ico: "✍", perm: "MANAGE_SIGNATURE_GROUPS" },
   { to: "/stamps", label: "Company Stamps", ico: "🏷", perm: "MANAGE_STAMPS" },

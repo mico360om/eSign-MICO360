@@ -22,8 +22,8 @@ export default function Profiles() {
   return (
     <div>
       <div className="between" style={{ marginBottom: 18 }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Profiles</h1>
-        <button className="btn btn-primary" onClick={() => setCreate(true)}>+ New Profile</button>
+        <h1 className="page-title" style={{ margin: 0 }}>Companies</h1>
+        <button className="btn btn-primary" onClick={() => setCreate(true)}>+ New Company</button>
       </div>
       <DataTable
         rows={shown}
@@ -31,10 +31,10 @@ export default function Profiles() {
         error={err}
         onRefresh={load}
         rowKey={(p: any) => p.id}
-        searchPlaceholder="Search profiles…"
+        searchPlaceholder="Search companies…"
         searchValue={(p: any) => `${p.name} ${p.description ?? ""}`}
         filters={[{ label: "Status", value: statusFilter, onChange: setStatusFilter, options: [{ label: "All statuses", value: "" }, { label: "Active", value: "active" }, { label: "Inactive", value: "inactive" }] }]}
-        emptyText="No profiles match your search."
+        emptyText="No companies match your search."
         columns={[
           { key: "thumb", header: "", sortable: false, render: (p: any) => <ProfileThumb profile={p} /> },
           { key: "name", header: "Name", render: (p: any) => <strong>{p.name}</strong> },
@@ -55,10 +55,10 @@ export default function Profiles() {
           },
         ]}
       />
-      {create && <CreateModal onClose={() => setCreate(false)} onDone={() => { setCreate(false); load(); toast("Profile created"); }} onError={(m: string) => toast(m, true)} />}
-      {edit && <EditModal profile={edit} onClose={() => setEdit(null)} onDone={() => { setEdit(null); load(); toast("Profile updated"); }} onError={(m: string) => toast(m, true)} />}
+      {create && <CreateModal onClose={() => setCreate(false)} onDone={() => { setCreate(false); load(); toast("Company created"); }} onError={(m: string) => toast(m, true)} />}
+      {edit && <EditModal profile={edit} onClose={() => setEdit(null)} onDone={() => { setEdit(null); load(); toast("Company updated"); }} onError={(m: string) => toast(m, true)} />}
       {members && <MembersModal profile={members} users={users} onClose={() => setMembers(null)} onDone={() => { setMembers(null); load(); toast("Members updated"); }} onError={(m: string) => toast(m, true)} />}
-      {thumbFor && <ThumbModal profile={thumbFor} onClose={() => setThumbFor(null)} onDone={() => { setThumbFor(null); load(); toast("Profile image updated"); }} onError={(m: string) => toast(m, true)} />}
+      {thumbFor && <ThumbModal profile={thumbFor} onClose={() => setThumbFor(null)} onDone={() => { setThumbFor(null); load(); toast("Company image updated"); }} onError={(m: string) => toast(m, true)} />}
     </div>
   );
 }
@@ -84,7 +84,7 @@ function ThumbModal({ profile, onClose, onDone, onError }: any) {
     catch (e) { onError(apiError(e)); } finally { setBusy(false); }
   };
   return (
-    <Modal title={`Profile image — ${profile.name}`} onClose={onClose}
+    <Modal title={`Company image — ${profile.name}`} onClose={onClose}
       footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={save}>Upload</button></>}>
       <div style={{ textAlign: "center", marginBottom: 12 }}><ProfileThumb profile={profile} /></div>
       <div className="field"><label>Image (PNG/JPG)</label><input type="file" accept="image/png,image/jpeg" onChange={(e) => setFile(e.target.files?.[0] || null)} /></div>
@@ -100,7 +100,7 @@ function CreateModal({ onClose, onDone, onError }: any) {
     try { await api.post("/profiles", { name: name.trim(), description }); onDone(); } catch (e) { onError(apiError(e)); }
   };
   return (
-    <Modal title="New Profile" onClose={onClose} footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save}>Create</button></>}>
+    <Modal title="New Company" onClose={onClose} footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save}>Create</button></>}>
       <div className="field"><label>Name</label><input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} /></div>
       <div className="field"><label>Description</label><textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></div>
     </Modal>
@@ -115,7 +115,7 @@ function EditModal({ profile, onClose, onDone, onError }: any) {
     try { await api.patch(`/profiles/${profile.id}`, { name: name.trim(), description }); onDone(); } catch (e) { onError(apiError(e)); }
   };
   return (
-    <Modal title={`Edit Profile — ${profile.name}`} onClose={onClose} footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save}>Save</button></>}>
+    <Modal title={`Edit Company — ${profile.name}`} onClose={onClose} footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save}>Save</button></>}>
       <div className="field"><label>Name</label><input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} /></div>
       <div className="field"><label>Description</label><textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></div>
     </Modal>

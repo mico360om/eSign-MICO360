@@ -137,7 +137,7 @@ export default function Dashboard() {
     { n: d.cards.totalUsers,       l: "Total Users",        link: "/users",     accent: "var(--ink)" },
     { n: d.cards.activeUsers,      l: "Active Users",       link: "/users",     accent: "var(--success)" },
     { n: d.cards.inactiveUsers,    l: "Inactive Users",     link: "/users",     accent: "var(--muted)" },
-    { n: d.cards.totalProfiles,    l: "Profiles",           link: "/profiles",  accent: "var(--ink)" },
+    { n: d.cards.totalProfiles,    l: "Companies",          link: "/profiles",  accent: "var(--ink)" },
     { n: d.cards.totalDocuments,   l: "Total Documents",    link: "/documents", accent: "var(--primary)" },
     { n: d.cards.pendingApprovals, l: "Pending Approvals",  link: "/documents", accent: "var(--warning)" },
     { n: d.cards.completed,        l: "Completed",          link: "/documents", accent: "var(--success)" },

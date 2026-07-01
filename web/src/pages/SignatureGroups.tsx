@@ -37,13 +37,13 @@ export default function SignatureGroups() {
         searchPlaceholder="Search groups…"
         searchValue={(g: any) => `${g.name} ${g.profile?.name ?? ""} ${(g.members ?? []).map((m: any) => m.user.fullName).join(" ")}`}
         filters={[
-          { label: "Profile", value: profileFilter, onChange: setProfileFilter, options: [{ label: "All profiles", value: "" }, ...profiles.map((p) => ({ label: p.name, value: p.id }))] },
+          { label: "Company", value: profileFilter, onChange: setProfileFilter, options: [{ label: "All companies", value: "" }, ...profiles.map((p) => ({ label: p.name, value: p.id }))] },
           { label: "Mode", value: modeFilter, onChange: setModeFilter, options: [{ label: "All modes", value: "" }, { label: "Sequential", value: "SEQUENTIAL" }, { label: "Parallel", value: "PARALLEL" }] },
         ]}
         emptyText="No signature groups match your search."
         columns={[
           { key: "name", header: "Name", render: (g: any) => <strong>{g.name}</strong> },
-          { key: "profile", header: "Profile", value: (g: any) => g.profile?.name ?? "", render: (g: any) => g.profile?.name },
+          { key: "profile", header: "Company", value: (g: any) => g.profile?.name ?? "", render: (g: any) => g.profile?.name },
           { key: "approvalMode", header: "Mode", render: (g: any) => g.approvalMode },
           { key: "members", header: "Signatories (order)", sortable: false, render: (g: any) => <span className="cell-wrap" style={{ display: "inline-block" }}>{g.members.map((m: any, i: number) => `${i + 1}. ${m.user.fullName}`).join(" → ")}</span> },
           { key: "actions", header: "Actions", sortable: false, className: "actions-cell", render: (g: any) => <><button className="btn btn-ghost btn-sm" onClick={() => setEditGroup(g)}>Edit</button>{" "}<button className="btn btn-ghost btn-sm" onClick={() => del(g.id)}>Delete</button></> },
@@ -71,7 +71,7 @@ function CreateModal({ profiles, onClose, onDone, onError }: any) {
   const toggle = (id: string) => setMembers(members.includes(id) ? members.filter((x) => x !== id) : [...members, id]);
   const save = async () => {
     if (!name.trim()) return onError("Name is required");
-    if (!profileId) return onError("Select a profile");
+    if (!profileId) return onError("Select a company");
     if (members.length === 0) return onError("Add at least one signatory");
     try {
       await api.post("/signature-groups", { name: name.trim(), profileId, approvalMode, members: members.map((userId, i) => ({ userId, order: i + 1 })) });
@@ -83,7 +83,7 @@ function CreateModal({ profiles, onClose, onDone, onError }: any) {
     <Modal title="New Signature Group" onClose={onClose}
       footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save}>Create</button></>}>
       <div className="field"><label>Name</label><input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} /></div>
-      <div className="field"><label>Profile (group is linked to this profile)</label>
+      <div className="field"><label>Company (group is linked to this company)</label>
         <select value={profileId} onChange={(e) => setProfileId(e.target.value)}>
           <option value="">— select —</option>
           {profiles.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -100,7 +100,7 @@ function CreateModal({ profiles, onClose, onDone, onError }: any) {
             const idx = members.indexOf(u.id);
             return <label key={u.id}><input type="checkbox" checked={idx >= 0} onChange={() => toggle(u.id)} /> {idx >= 0 ? `${idx + 1}. ` : ""}{u.fullName}</label>;
           })}
-          {profileId && profileUsers.length === 0 && <span className="muted">No users in this profile.</span>}
+          {profileId && profileUsers.length === 0 && <span className="muted">No users in this company.</span>}
         </div>
       </div>
     </Modal>
@@ -152,7 +152,7 @@ function EditModal({ group, onClose, onDone, onError }: any) {
             return <label key={u.id}><input type="checkbox" checked={idx >= 0} onChange={() => toggle(u.id)} /> {idx >= 0 ? `${idx + 1}. ` : ""}{u.fullName}</label>;
           })}
           {!profileLoaded && <span className="muted">Loading members…</span>}
-          {profileLoaded && profileUsers.length === 0 && <span className="muted">{group.profile?.id ? "No users in this profile." : "No profile linked to this group."}</span>}
+          {profileLoaded && profileUsers.length === 0 && <span className="muted">{group.profile?.id ? "No users in this company." : "No company linked to this group."}</span>}
         </div>
       </div>
     </Modal>

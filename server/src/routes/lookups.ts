@@ -11,7 +11,7 @@ router.use(authenticate);
 
 async function assertMember(userId: string, profileId: string) {
   const ids = await userProfileIds(userId);
-  if (!ids.includes(profileId)) throw forbidden("You are not assigned to this profile");
+  if (!ids.includes(profileId)) throw forbidden("You are not assigned to this company");
 }
 
 // Users who share a given profile (eligible signatories per the access rules).

@@ -48,7 +48,7 @@ export default function Reports() {
             ))}
           </div>
           <div className="card card-pad">
-            <h3>By Profile</h3>
+            <h3>By Company</h3>
             {admin.byProfile.map((p: any, i: number) => <Bar key={`${p.profile}-${i}`} label={p.profile} val={p.count} max={admin.uploaded} />)}
             <h3 style={{ marginTop: 18 }}>Stamp Usage</h3>
             {admin.stampUsage.map((s: any, i: number) => <Bar key={`${s.stamp}-${i}`} label={s.stamp} val={s.count} max={admin.uploaded} />)}
