@@ -41,6 +41,7 @@ function PageCanvas({ pdf, pageNum, scale, overlays }: { pdf: any; pageNum: numb
           key={o.id}
           src={o.imageUrl}
           alt=""
+          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           style={{ position: "absolute", left: `${o.x * 100}%`, top: `${o.y * 100}%`, width: `${o.width * 100}%`, height: `${o.height * 100}%`, objectFit: "contain", pointerEvents: "none" }}
         />
       ))}

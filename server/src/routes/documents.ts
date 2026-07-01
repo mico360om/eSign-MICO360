@@ -117,7 +117,17 @@ router.get(
       include: { ...docInclude, placements: true, events: { orderBy: { createdAt: "asc" } } },
     });
     if (!doc) throw notFound("Document not found");
-    ok(res, doc);
+
+    // Enrich each history event with the actor's name (DocumentEvent stores only
+    // actorId; there is no Prisma relation, so resolve names in one extra query).
+    const actorIds = [...new Set(doc.events.map((e) => e.actorId).filter(Boolean) as string[])];
+    const actors = actorIds.length
+      ? await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, fullName: true } })
+      : [];
+    const nameById = new Map(actors.map((a) => [a.id, a.fullName]));
+    const events = doc.events.map((e) => ({ ...e, actorName: e.actorId ? nameById.get(e.actorId) ?? null : null }));
+
+    ok(res, { ...doc, events });
   }),
 );
 
