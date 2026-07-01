@@ -21,4 +21,10 @@ contextBridge.exposeInMainWorld("mico360", {
       return () => ipcRenderer.removeListener("updates:event", handler);
     },
   },
+
+  // ── LibreOffice (exact Office→PDF) ──────────────────────────────────
+  office: {
+    status: () => ipcRenderer.invoke("office:status"),
+    install: () => ipcRenderer.invoke("office:install"),
+  },
 });
