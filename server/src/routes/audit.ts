@@ -69,4 +69,50 @@ router.get(
   }),
 );
 
+// CSV export of the audit log (respects the same filters as the list).
+router.get(
+  "/export",
+  asyncHandler(async (req, res) => {
+    const q = (req.query.q as string)?.trim();
+    const action = (req.query.action as string)?.trim();
+    const actorId = (req.query.actorId as string)?.trim();
+    const from = req.query.from ? new Date(req.query.from as string) : undefined;
+    const to = req.query.to ? new Date(req.query.to as string) : undefined;
+
+    const where: any = {};
+    if (action) where.action = { contains: action };
+    if (actorId) where.actorId = actorId;
+    if (from || to) where.createdAt = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
+    if (q) where.OR = [{ action: { contains: q } }, { entity: { contains: q } }, { detail: { contains: q } }];
+
+    const logs = await prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 10000,
+      include: { actor: { select: { fullName: true } } },
+    });
+
+    const esc = (v: any) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = ["Date/Time", "User", "Action", "Entity", "Entity ID", "Detail", "IP", "Device"];
+    const rows = logs.map((l) => [
+      new Date(l.createdAt).toISOString(),
+      (l as any).actor?.fullName ?? "System",
+      l.action,
+      l.entity ?? "",
+      l.entityId ?? "",
+      l.detail ?? "",
+      l.ip ?? "",
+      (l as any).device ?? "",
+    ]);
+    const csv = [header, ...rows].map((r) => r.map(esc).join(",")).join("\r\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="audit-log-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send("﻿" + csv); // BOM so Excel detects UTF-8
+  }),
+);
+
 export default router;
