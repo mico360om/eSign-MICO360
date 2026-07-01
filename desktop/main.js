@@ -1,8 +1,9 @@
-const { app, BrowserWindow, shell, dialog, Menu } = require("electron");
+const { app, BrowserWindow, shell, dialog, Menu, ipcMain } = require("electron");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
 const net = require("net");
+const { spawn } = require("child_process");
 
 // Use a clean, branded app-data folder (%APPDATA%\eSign MICO360) instead of the
 // package name (@esign-mico360\desktop). Must be set before any getPath call.
@@ -18,6 +19,53 @@ function logCrash(kind, err) {
 }
 process.on("uncaughtException", (err) => logCrash("uncaughtException", err));
 process.on("unhandledRejection", (err) => logCrash("unhandledRejection", err));
+
+// ── LibreOffice (soffice) detection + one-click install ─────────────────────
+// Exact Word/Excel/PowerPoint → PDF conversion uses LibreOffice. If it isn't
+// installed, the UI prompts the admin and this opens an elevated PowerShell that
+// installs it via winget. The server auto-detects it once present.
+function sofficePath() {
+  if (process.env.SOFFICE_PATH && fs.existsSync(process.env.SOFFICE_PATH)) return process.env.SOFFICE_PATH;
+  const candidates =
+    process.platform === "win32"
+      ? ["C:/Program Files/LibreOffice/program/soffice.exe", "C:/Program Files (x86)/LibreOffice/program/soffice.exe"]
+      : process.platform === "darwin"
+        ? ["/Applications/LibreOffice.app/Contents/MacOS/soffice"]
+        : ["/usr/bin/soffice", "/usr/local/bin/soffice", "/opt/libreoffice/program/soffice", "/snap/bin/libreoffice"];
+  for (const c of candidates) if (fs.existsSync(c)) return c;
+  return null;
+}
+
+function installLibreOffice() {
+  if (process.platform !== "win32") {
+    shell.openExternal("https://www.libreoffice.org/download/download/");
+    return { ok: true, opened: "browser" };
+  }
+  const ps = [
+    "$ErrorActionPreference='Continue'",
+    "Write-Host 'Installing LibreOffice for eSign MICO360 (exact Word/Excel/PowerPoint conversion)...' -ForegroundColor Cyan",
+    "if (Get-Command winget -ErrorAction SilentlyContinue) {",
+    "  winget install -e --id TheDocumentFoundation.LibreOffice --accept-source-agreements --accept-package-agreements",
+    "} else {",
+    "  Write-Host 'winget was not found. Opening the LibreOffice download page instead...' -ForegroundColor Yellow",
+    "  Start-Process 'https://www.libreoffice.org/download/download/'",
+    "}",
+    "Write-Host ''",
+    "Write-Host 'When installation finishes, restart eSign MICO360 and re-upload your document.' -ForegroundColor Green",
+  ].join("\r\n");
+  const tmp = path.join(os.tmpdir(), "esign-install-libreoffice.ps1");
+  try {
+    fs.writeFileSync(tmp, ps, "utf8");
+    const outer = `Start-Process powershell -Verb RunAs -ArgumentList '-NoExit','-ExecutionPolicy','Bypass','-File','${tmp.replace(/'/g, "''")}'`;
+    spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", outer], { detached: true, stdio: "ignore" }).unref();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e && e.message ? e.message : e) };
+  }
+}
+
+ipcMain.handle("office:status", () => ({ supported: true, available: !!sofficePath(), platform: process.platform }));
+ipcMain.handle("office:install", () => installLibreOffice());
 
 // ── Paths (work both in dev and packaged) ───────────────────────────
 const VENDOR = path.join(__dirname, "vendor");
@@ -94,6 +142,10 @@ async function start() {
     fs.mkdirSync(userData, { recursive: true });
     fs.writeFileSync(secretFile, jwtSecret);
   }
+
+  // Let the embedded server use LibreOffice for exact Office→PDF conversion.
+  const so = sofficePath();
+  if (so) process.env.SOFFICE_PATH = so;
 
   const { startEmbedded } = require(path.join(VENDOR, "server.js"));
   await startEmbedded({
