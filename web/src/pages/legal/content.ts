@@ -26,7 +26,7 @@ export interface LegalDoc {
 // App / company metadata — single source of truth for the About page footer too.
 export const APP_INFO = {
   appName: "eSign MICO360",
-  appVersion: "1.0.0",
+  appVersion: "1.0.1",
   companyName: "MICO360 Softwares",
   contactEmail: "mico360om@gmail.com",
   website: "https://github.com/mico360om/eSign-MICO360",
