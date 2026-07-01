@@ -17,6 +17,8 @@ export default function DocumentDetail() {
   const [showSubmit, setShowSubmit] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showApply, setShowApply] = useState(false);
+  const [applyInitialKind, setApplyInitialKind] = useState<null | "SIGNATURE" | "STAMP">(null);
+  const [stampSkip, setStampSkip] = useState(false);
   const [verify, setVerify] = useState<any>(null);
   const [pageCount, setPageCount] = useState(1);
   const nav = useNavigate();
@@ -60,6 +62,15 @@ export default function DocumentDetail() {
   const isOwner = doc.uploadedBy?.id === me!.id;
   const canSubmit = isOwner && ["DRAFT", "UPLOADED", "PDF_CONVERTED"].includes(doc.status);
   const myPlacements = (doc.placements || []).filter((p: any) => p.placedById === me!.id);
+
+  // One stamp per document — after signing, prompt the approver once (per doc,
+  // per session) to add the company stamp if the document isn't stamped yet.
+  const docHasStamp = (doc.placements || []).some((p: any) => p.kind === "STAMP");
+  const iSigned = myPlacements.some((p: any) => p.kind === "SIGNATURE");
+  const stampSkipKey = `stampSkip:${id}`;
+  const showStampPrompt = canDecide && can("USE_STAMP") && iSigned && !docHasStamp && !stampSkip && !sessionStorage.getItem(stampSkipKey);
+  const skipStamp = () => { sessionStorage.setItem(stampSkipKey, "1"); setStampSkip(true); };
+  const openStamp = () => { setApplyInitialKind("STAMP"); setShowApply(true); };
 
   const decide = async (decision: "APPROVE" | "REJECT") => {
     setBusy(true);
@@ -132,7 +143,16 @@ export default function DocumentDetail() {
             {isOwner && can("UPLOAD") && <button className="btn btn-ghost" style={{ width: "100%", marginBottom: 8 }} disabled={busy} onClick={copyDoc}>Copy &amp; Send Again</button>}
             {canDecide && (
               <>
-                {(can("SIGN") || can("USE_STAMP")) && <button className="btn btn-ghost" style={{ width: "100%", marginBottom: 8 }} onClick={() => setShowApply(true)}>✍ Apply Signature / Stamp</button>}
+                {(can("SIGN") || can("USE_STAMP")) && <button className="btn btn-ghost" style={{ width: "100%", marginBottom: 8 }} onClick={() => { setApplyInitialKind(null); setShowApply(true); }}>✍ Apply Signature / Stamp</button>}
+                {showStampPrompt && (
+                  <div className="card card-pad" style={{ padding: 12, marginBottom: 8, background: "var(--primary-soft)", border: "1px solid var(--primary-light)" }}>
+                    <div style={{ fontSize: 13, marginBottom: 8 }}>This document is <strong>not stamped</strong>. Do you want to add the company stamp?</div>
+                    <div className="row" style={{ gap: 8 }}>
+                      <button className="btn btn-primary btn-sm grow" onClick={openStamp}>Yes, add stamp</button>
+                      <button className="btn btn-ghost btn-sm grow" onClick={skipStamp}>No, not needed</button>
+                    </div>
+                  </div>
+                )}
                 {myPlacements.length > 0 && (
                   <div style={{ marginBottom: 8 }}>
                     {myPlacements.map((p: any) => (
@@ -232,7 +252,7 @@ export default function DocumentDetail() {
 
       {showSubmit && <SubmitModal docId={id!} profileId={doc.profile.id} onClose={() => setShowSubmit(false)} onDone={() => { setShowSubmit(false); toast("Submitted for approval"); load(); }} onError={(m: string) => toast(m, true)} />}
       {showEdit && <EditDetailsModal doc={doc} isAdmin={can("MANAGE_PROFILES")} myProfiles={me!.profiles} onClose={() => setShowEdit(false)} onDone={() => { setShowEdit(false); toast("Details updated"); load(); }} onError={(m: string) => toast(m, true)} />}
-      {showApply && <ApplyMarkModal docId={id!} profileId={doc.profile.id} pageCount={pageCount} canSign={can("SIGN")} canStamp={can("USE_STAMP")} requestedType={myStep?.approvalType} stampedPages={(doc.placements || []).filter((p: any) => p.kind === "STAMP").map((p: any) => p.page)} onClose={() => setShowApply(false)} onDone={(msg?: string) => { setShowApply(false); toast(msg || "Applied to PDF"); load(); }} onError={(m: string) => toast(m, true)} />}
+      {showApply && <ApplyMarkModal docId={id!} profileId={doc.profile.id} pageCount={pageCount} canSign={can("SIGN")} canStamp={can("USE_STAMP")} requestedType={myStep?.approvalType} initialKind={applyInitialKind} stampedPages={(doc.placements || []).filter((p: any) => p.kind === "STAMP").map((p: any) => p.page)} onClose={() => { setShowApply(false); setApplyInitialKind(null); }} onDone={(msg?: string) => { setShowApply(false); setApplyInitialKind(null); toast(msg || "Applied to PDF"); load(); }} onError={(m: string) => toast(m, true)} />}
     </div>
   );
 }
@@ -435,9 +455,9 @@ function PositionGrid({ value, onChange }: { value: string; onChange: (v: string
 }
 
 // Apply a (preconfigured) signature or a company stamp during approval.
-function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, requestedType, stampedPages = [], onClose, onDone, onError }: any) {
-  const stampedSet = new Set<number>(stampedPages);
-  const [kind, setKind] = useState<"SIGNATURE" | "STAMP">(canSign ? "SIGNATURE" : "STAMP");
+function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, requestedType, stampedPages = [], initialKind, onClose, onDone, onError }: any) {
+  const docHasStamp = stampedPages.length > 0;
+  const [kind, setKind] = useState<"SIGNATURE" | "STAMP">(initialKind || (canSign ? "SIGNATURE" : "STAMP"));
   const [marks, setMarks] = useState<any[]>([]);
   const [markUrls, setMarkUrls] = useState<Record<string, string>>({});
   const [selMark, setSelMark] = useState<string>("");
@@ -501,15 +521,11 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
         }
       } else {
         if (!stampId) throw new Error("Select a stamp");
+        // One company stamp per DOCUMENT — placed once, on the selected page.
+        if (docHasStamp) throw new Error("This document already has a company stamp (one stamp per document).");
         const coords = pos === "saved" ? POSITIONS["bottom-right"] : POSITIONS[pos];
-        // One stamp per page: skip pages that already carry a company stamp.
-        const target = pages.filter((pg) => !stampedSet.has(pg));
-        const skipped = pages.length - target.length;
-        if (target.length === 0) throw new Error(pages.length === 1 ? "This page already has a company stamp (one stamp per page)." : "All selected pages already have a company stamp (one stamp per page).");
-        for (const pg of target) {
-          await api.post(`/documents/${docId}/placements`, { kind: "STAMP", stampId, page: pg, width: 0.26, height: 0.12, ...coords });
-        }
-        onDone(skipped > 0 ? `Stamp applied to ${target.length} page(s); ${skipped} already stamped (skipped)` : undefined);
+        await api.post(`/documents/${docId}/placements`, { kind: "STAMP", stampId, page, width: 0.26, height: 0.12, ...coords });
+        onDone("Stamp applied");
         return;
       }
       onDone();
@@ -565,12 +581,12 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
         <div className="field"><label>Company stamp</label>
           <select value={stampId} onChange={(e) => setStampId(e.target.value)}>{stamps.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           {stamps.length === 0 && <p className="muted" style={{ fontSize: 12 }}>No stamps available in this company.</p>}
-          <p className="muted" style={{ fontSize: 12 }}>One company stamp per page. Pages already stamped are skipped automatically.{stampedSet.size > 0 ? ` Currently stamped: page ${[...stampedSet].sort((a, b) => a - b).join(", ")}.` : ""}</p>
+          <p className="muted" style={{ fontSize: 12 }}>{docHasStamp ? "This document is already stamped — only one company stamp is allowed per document." : "One company stamp per document, placed on the page you choose below."}</p>
         </div>
       )}
 
       <div className="row">
-        {pageCount > 1 ? (
+        {kind === "SIGNATURE" && pageCount > 1 ? (
           <div className="field grow">
             <label>Pages</label>
             <label className="row" style={{ gap: 6, marginBottom: 6 }}>
@@ -580,7 +596,7 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
             {!allPages && <input type="number" min={1} max={pageCount} value={page} onChange={(e) => setPage(Number(e.target.value))} />}
           </div>
         ) : (
-          <div className="field grow"><label>Page</label><input type="number" min={1} value={page} onChange={(e) => setPage(Number(e.target.value))} /></div>
+          <div className="field grow"><label>Page{pageCount > 1 ? ` (1–${pageCount})` : ""}</label><input type="number" min={1} max={pageCount || undefined} value={page} onChange={(e) => setPage(Number(e.target.value))} /></div>
         )}
         <div className="field grow"><label>Position on page</label>
           {kind === "SIGNATURE" && (
