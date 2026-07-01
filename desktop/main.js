@@ -37,30 +37,50 @@ function sofficePath() {
 }
 
 function installLibreOffice() {
+  const downloadUrl = "https://www.libreoffice.org/download/download/";
   if (process.platform !== "win32") {
-    shell.openExternal("https://www.libreoffice.org/download/download/");
+    shell.openExternal(downloadUrl);
     return { ok: true, opened: "browser" };
   }
+  // Already installed? Nothing to do.
+  if (sofficePath()) return { ok: true, alreadyInstalled: true };
+
+  // Use the absolute path to powershell.exe — the packaged app may not have it
+  // on PATH, which would make a bare spawn("powershell.exe") fail silently.
+  const psExe = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+  if (!fs.existsSync(psExe)) {
+    shell.openExternal(downloadUrl);
+    return { ok: false, opened: "browser", error: "PowerShell not found." };
+  }
+
   const ps = [
     "$ErrorActionPreference='Continue'",
     "Write-Host 'Installing LibreOffice for eSign MICO360 (exact Word/Excel/PowerPoint conversion)...' -ForegroundColor Cyan",
+    "Write-Host ''",
     "if (Get-Command winget -ErrorAction SilentlyContinue) {",
     "  winget install -e --id TheDocumentFoundation.LibreOffice --accept-source-agreements --accept-package-agreements",
     "} else {",
     "  Write-Host 'winget was not found. Opening the LibreOffice download page instead...' -ForegroundColor Yellow",
-    "  Start-Process 'https://www.libreoffice.org/download/download/'",
+    "  Start-Process '" + downloadUrl + "'",
     "}",
     "Write-Host ''",
     "Write-Host 'When installation finishes, restart eSign MICO360 and re-upload your document.' -ForegroundColor Green",
+    "Write-Host 'You can close this window.' -ForegroundColor DarkGray",
   ].join("\r\n");
   const tmp = path.join(os.tmpdir(), "esign-install-libreoffice.ps1");
   try {
     fs.writeFileSync(tmp, ps, "utf8");
-    const outer = `Start-Process powershell -Verb RunAs -ArgumentList '-NoExit','-ExecutionPolicy','Bypass','-File','${tmp.replace(/'/g, "''")}'`;
-    spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", outer], { detached: true, stdio: "ignore" }).unref();
+    // A brief hidden launcher opens a VISIBLE elevated PowerShell (UAC) that runs
+    // the install script. Start-Process -Verb RunAs shows the elevated window.
+    const inner = `Start-Process -FilePath '${psExe}' -Verb RunAs -ArgumentList @('-NoExit','-NoProfile','-ExecutionPolicy','Bypass','-File','${tmp.replace(/'/g, "''")}')`;
+    const child = spawn(psExe, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", inner], { detached: true, stdio: "ignore", windowsHide: true });
+    child.on("error", (e) => logCrash("office-install", e));
+    child.unref();
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: String(e && e.message ? e.message : e) };
+    logCrash("office-install", e);
+    shell.openExternal(downloadUrl);
+    return { ok: false, opened: "browser", error: String(e && e.message ? e.message : e) };
   }
 }
 
