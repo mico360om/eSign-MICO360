@@ -3,6 +3,7 @@ import path from "path";
 import multer from "multer";
 import { env } from "../config/env";
 import { dirs } from "./storage";
+import { badRequest } from "./http";
 
 function diskStorage(dest: string) {
   return multer.diskStorage({
@@ -24,7 +25,8 @@ export const documentUpload = multer({
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).slice(1).toLowerCase();
     if (env.allowedExtensions.includes(ext)) cb(null, true);
-    else cb(new Error(`File type .${ext} is not allowed`));
+    // Pass an AppError so the error handler returns a clean 400 (not a 500).
+    else cb(badRequest(`File type .${ext} is not allowed. Allowed: ${env.allowedExtensions.join(", ")}`));
   },
 });
 

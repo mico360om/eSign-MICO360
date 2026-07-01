@@ -194,6 +194,7 @@ export default function Dashboard() {
               <h3 style={{ margin: 0 }}>Recent Documents</h3>
               <Link to="/documents" style={{ fontSize: 13 }}>View all →</Link>
             </div>
+            <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr><th></th><th>Title</th><th>Status</th><th>Current Approver</th><th>Pending Since</th><th>Next Action</th></tr>
@@ -235,6 +236,7 @@ export default function Dashboard() {
                 {d.recentDocs.length === 0 && <tr><td colSpan={6} className="muted" style={{ textAlign: "center", padding: 24 }}>No documents yet.</td></tr>}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Recent Activity */}
@@ -271,7 +273,7 @@ export default function Dashboard() {
 
       {/* ── Charts row ── */}
       {isAdmin && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 18 }}>
+        <div className="grid-3">
           <div className="card card-pad">
             <h3 style={{ margin: "0 0 14px" }}>Monthly Uploads</h3>
             {d.monthlyUploads?.length > 0

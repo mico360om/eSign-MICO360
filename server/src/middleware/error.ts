@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
+import { MulterError } from "multer";
 import { AppError } from "../lib/http";
 import { recordError } from "../lib/errorReport";
 
@@ -13,6 +14,11 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   }
   if (err instanceof ZodError) {
     return res.status(400).json({ error: "Validation failed", details: err.flatten() });
+  }
+  // Multer upload errors (file too large, too many files, etc.) → clean 400.
+  if (err instanceof MulterError) {
+    const msg = err.code === "LIMIT_FILE_SIZE" ? "File is too large." : `Upload error: ${err.message}`;
+    return res.status(400).json({ error: msg });
   }
   // Prisma unique-constraint
   if (typeof err === "object" && err && (err as any).code === "P2002") {
