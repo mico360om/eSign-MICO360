@@ -28,9 +28,9 @@ export const APP_INFO = {
   appName: "eSign MICO360",
   appVersion: "1.0.2",
   companyName: "MICO360 Softwares",
-  contactEmail: "mico360om@gmail.com",
-  website: "https://github.com/mico360om/eSign-MICO360",
-  supportEmail: "mico360om@gmail.com",
+  contactEmail: "info@mico360.com",
+  website: "https://www.mico360.com",
+  supportEmail: "info@mico360.com",
 };
 
 export const TERMS: LegalDoc = {
@@ -136,7 +136,7 @@ export const PRIVACY: LegalDoc = {
     {
       h: "6. Contact Information",
       p: [
-        "For any privacy questions or requests, contact us at mico360om@gmail.com.",
+        "For any privacy questions or requests, contact us at info@mico360.com.",
       ],
     },
   ],
@@ -165,8 +165,8 @@ export const ABOUT: LegalDoc = {
     {
       h: "Contact",
       p: [
-        "• Email: mico360om@gmail.com",
-        "• Website: https://github.com/mico360om/eSign-MICO360",
+        "• Email: info@mico360.com",
+        "• Website: www.mico360.com",
       ],
     },
   ],

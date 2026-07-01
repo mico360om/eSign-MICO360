@@ -10,7 +10,7 @@ import { decide } from "../services/decision";
 import { authenticate, hasPermission, requirePermission } from "../middleware/auth";
 import { documentUpload, signatureUpload } from "../lib/upload";
 import { abs, rel } from "../lib/storage";
-import { convertToPdf, pdfPageCount } from "../lib/pdf";
+import { convertToPdf, pdfPageCount, aspectNormHeight } from "../lib/pdf";
 import { sha256File } from "../lib/integrity";
 import { pdfHasSignature } from "../lib/digitalsign";
 import { userProfileIds, shareProfile } from "../services/access";
@@ -542,13 +542,21 @@ router.post(
       if (!body.stampId) throw badRequest("stampId is required for a stamp placement");
       const stamp = await prisma.stamp.findUnique({ where: { id: body.stampId } });
       if (!stamp || !stamp.isActive) throw notFound("Stamp not found");
-      // Rule: at most ONE company stamp per page (signatures are unlimited).
+      // Rule: at most ONE company stamp per DOCUMENT (signatures are unlimited).
       const existingStamp = await prisma.placement.findFirst({
-        where: { documentId: doc.id, page: body.page, kind: "STAMP" },
+        where: { documentId: doc.id, kind: "STAMP" },
       });
-      if (existingStamp) throw badRequest(`Page ${body.page} already has a company stamp — only one stamp is allowed per page.`);
+      if (existingStamp) throw badRequest("This document already has a company stamp — only one stamp is allowed per document.");
       imagePath = stamp.imagePath;
       await prisma.stampUsage.create({ data: { stampId: stamp.id, userId: req.user!.id, documentId: doc.id } });
+    }
+
+    // Preserve the image's aspect ratio: derive the stored height from the image
+    // and the target page so the preview matches the (aspect-correct) final PDF.
+    let placeHeight = body.height;
+    if (doc.convertedPdfPath) {
+      const fit = await aspectNormHeight(abs(imagePath), abs(doc.convertedPdfPath), body.page, body.width);
+      if (fit && fit > 0) placeHeight = fit;
     }
 
     const placement = await prisma.placement.create({
@@ -559,7 +567,7 @@ router.post(
         x: body.x,
         y: body.y,
         width: body.width,
-        height: body.height,
+        height: placeHeight,
         imagePath,
         placedById: req.user!.id,
       },

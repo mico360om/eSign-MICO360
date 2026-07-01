@@ -233,7 +233,9 @@ export async function applyPlacements(
       const img = isPng ? await pdf.embedPng(imgBytes) : await pdf.embedJpg(imgBytes);
 
       const w = pl.width * pw;
-      const h = pl.height * ph;
+      // Preserve the image's true aspect ratio — never stretch the signature or
+      // stamp. Height is derived from the image dimensions, not the stored value.
+      const h = w * (img.height / img.width);
       const x = pl.x * pw;
       // convert top-left normalized y to pdf-lib bottom-left coordinate
       const y = ph - pl.y * ph - h;
@@ -249,6 +251,32 @@ export async function applyPlacements(
   // placeholder can be appended afterwards if the document is signed digitally.
   fs.writeFileSync(outPath, await pdf.save({ useObjectStreams: false }));
   return outPath;
+}
+
+/**
+ * Given a normalized width, return the normalized height that preserves the
+ * image's aspect ratio on the target PDF page. Used when a placement is created
+ * so the on-screen preview matches the (aspect-correct) final render.
+ */
+export async function aspectNormHeight(
+  imageAbsPath: string,
+  convertedPdfAbsPath: string,
+  page: number,
+  normWidth: number,
+): Promise<number | null> {
+  try {
+    const tmp = await PDFDocument.create();
+    const bytes = fs.readFileSync(imageAbsPath);
+    const isPng = imageAbsPath.toLowerCase().endsWith(".png");
+    const img = isPng ? await tmp.embedPng(bytes) : await tmp.embedJpg(bytes);
+    const conv = await PDFDocument.load(fs.readFileSync(convertedPdfAbsPath));
+    const pages = conv.getPages();
+    const pg = pages[(page || 1) - 1] || pages[0];
+    const { width: pw, height: ph } = pg.getSize();
+    return (normWidth * pw * (img.height / img.width)) / ph;
+  } catch {
+    return null;
+  }
 }
 
 /** Count pages in a PDF (used by clients to build the page selector). */
