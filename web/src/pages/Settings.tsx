@@ -76,8 +76,15 @@ export default function Settings() {
   const [busy, setBusy] = useState(false);
   const [testEmailTo, setTestEmailTo] = useState("");
   const [testing, setTesting] = useState(false);
+  const [query, setQuery] = useState("");
 
   useEffect(() => { unwrap(api.get("/settings")).then(setSettings).catch(() => setSettings({})); }, []);
+
+  const slug = (t: string) => "sec-" + t.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const q = query.trim().toLowerCase();
+  const groups = SETTING_GROUPS
+    .map((g) => ({ ...g, fields: q ? g.fields.filter((f) => f.label.toLowerCase().includes(q) || f.key.toLowerCase().includes(q)) : g.fields }))
+    .filter((g) => g.fields.length > 0);
 
   const set = (key: string, value: string) => setSettings((s) => ({ ...s!, [key]: value }));
 
@@ -101,14 +108,27 @@ export default function Settings() {
 
   return (
     <div>
-      <div className="between" style={{ marginBottom: 20 }}>
+      <div className="between" style={{ marginBottom: 14 }}>
         <h1 className="page-title" style={{ margin: 0 }}>System Settings</h1>
         <button className="btn btn-primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save Settings"}</button>
       </div>
 
+      {/* Search + quick-jump section chips */}
+      <div style={{ maxWidth: 700 }}>
+        <input className="search" style={{ width: "100%", marginBottom: 12 }} placeholder="Search settings…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        {!q && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18 }}>
+            {SETTING_GROUPS.map((g) => (
+              <button key={g.title} className="btn btn-ghost btn-sm" onClick={() => document.getElementById(slug(g.title))?.scrollIntoView({ behavior: "smooth", block: "start" })}>{g.title}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div style={{ display: "flex", flexDirection: "column", gap: 22, maxWidth: 700 }}>
-        {SETTING_GROUPS.map((group) => (
-          <div key={group.title} className="card card-pad">
+        {groups.length === 0 && <div className="empty-state">No settings match “{query}”.</div>}
+        {groups.map((group) => (
+          <div key={group.title} id={slug(group.title)} className="card card-pad" style={{ scrollMarginTop: 12 }}>
             <h3 style={{ margin: "0 0 16px", fontSize: 15, borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>{group.title}</h3>
             {group.fields.map((field) => {
               const val = settings[field.key] ?? "";
