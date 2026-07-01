@@ -26,6 +26,7 @@ import adminRoutes from "./routes/admin";
 import templateRoutes from "./routes/templates";
 import accountRoutes from "./routes/account";
 import approvalTypeRoutes from "./routes/approvalTypes";
+import webhookRoutes from "./routes/webhooks";
 
 export function createApp() {
   const app = express();
@@ -78,6 +79,7 @@ export function createApp() {
   app.use("/api/templates", templateRoutes);
   app.use("/api/account", accountRoutes);
   app.use("/api/approval-types", approvalTypeRoutes);
+  app.use("/api/webhooks", webhookRoutes);
 
   // Unknown /api routes -> JSON 404.
   app.use("/api", notFoundHandler);

@@ -4,7 +4,7 @@ import { Spinner, useToast } from "../components/ui";
 
 // ── Grouped setting definitions ───────────────────────────────────────────
 
-type FieldDef = { key: string; label: string; type?: "bool" | "select" | "number" | "password"; options?: { value: string; label: string }[]; hint?: string };
+type FieldDef = { key: string; label: string; type?: "bool" | "select" | "number" | "password"; options?: { value: string; label: string }[]; hint?: string; showIf?: (s: Record<string, string>) => boolean };
 
 const SETTING_GROUPS: { title: string; fields: FieldDef[] }[] = [
   {
@@ -49,12 +49,20 @@ const SETTING_GROUPS: { title: string; fields: FieldDef[] }[] = [
     fields: [
       { key: "notifications.email",        label: "Enable email notifications",       type: "bool" },
       { key: "notifications.reminderHours", label: "Approval reminder interval (hours)", type: "number" },
-      { key: "smtp.host",                  label: "SMTP Host",                        hint: "e.g. smtp.gmail.com" },
-      { key: "smtp.port",                  label: "SMTP Port",                        type: "number", hint: "Usually 587 (TLS) or 465 (SSL)" },
-      { key: "smtp.secure",               label: "Use Secure SMTP (SSL)",             type: "bool" },
-      { key: "smtp.user",                  label: "SMTP Username",                    hint: "Usually your full email address" },
-      { key: "smtp.pass",                  label: "SMTP Password",                    type: "password" },
-      { key: "smtp.from",                  label: "Sender Email (From address)",      hint: 'e.g. eSign MICO360 <noreply@company.com>' },
+      { key: "email.provider",             label: "Email provider",                   type: "select",
+        options: [{ value: "smtp", label: "SMTP server" }, { value: "mailjet", label: "Mailjet API" }], hint: "How outgoing emails (OTP codes, notifications) are sent" },
+      // ── SMTP ──
+      { key: "smtp.host",                  label: "SMTP Host",                        hint: "e.g. smtp.gmail.com", showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
+      { key: "smtp.port",                  label: "SMTP Port",                        type: "number", hint: "Usually 587 (TLS) or 465 (SSL)", showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
+      { key: "smtp.secure",               label: "Use Secure SMTP (SSL)",             type: "bool", showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
+      { key: "smtp.user",                  label: "SMTP Username",                    hint: "Usually your full email address", showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
+      { key: "smtp.pass",                  label: "SMTP Password",                    type: "password", showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
+      { key: "smtp.from",                  label: "Sender Email (From address)",      hint: 'e.g. eSign MICO360 <noreply@company.com>', showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
+      // ── Mailjet ──
+      { key: "mailjet.apiKey",             label: "Mailjet API Key",                  hint: "From Mailjet → Account → API Key Management", showIf: (s) => s["email.provider"] === "mailjet" },
+      { key: "mailjet.apiSecret",          label: "Mailjet Secret Key",               type: "password", showIf: (s) => s["email.provider"] === "mailjet" },
+      { key: "mailjet.fromEmail",          label: "Sender Email",                     hint: "Must be a verified sender in Mailjet", showIf: (s) => s["email.provider"] === "mailjet" },
+      { key: "mailjet.fromName",           label: "Sender Name",                      showIf: (s) => s["email.provider"] === "mailjet" },
     ],
   },
   {
@@ -83,7 +91,12 @@ export default function Settings() {
   const slug = (t: string) => "sec-" + t.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   const q = query.trim().toLowerCase();
   const groups = SETTING_GROUPS
-    .map((g) => ({ ...g, fields: q ? g.fields.filter((f) => f.label.toLowerCase().includes(q) || f.key.toLowerCase().includes(q)) : g.fields }))
+    .map((g) => ({
+      ...g,
+      fields: g.fields
+        .filter((f) => !f.showIf || (settings && f.showIf(settings)))
+        .filter((f) => !q || f.label.toLowerCase().includes(q) || f.key.toLowerCase().includes(q)),
+    }))
     .filter((g) => g.fields.length > 0);
 
   const set = (key: string, value: string) => setSettings((s) => ({ ...s!, [key]: value }));
