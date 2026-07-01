@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { asyncHandler, ok } from "../lib/http";
+import { asyncHandler, badRequest, ok } from "../lib/http";
 import { audit } from "../lib/audit";
 import { authenticate, requirePermission } from "../middleware/auth";
 import { runReminderSweep } from "../services/reminders";
@@ -27,10 +27,15 @@ router.post(
   requirePermission("MANAGE_SETTINGS"),
   asyncHandler(async (req, res) => {
     const { to } = z.object({ to: z.string().email() }).parse(req.body);
-    // Throws (→ 4xx/5xx with the real SMTP error) if delivery genuinely fails.
-    const { simulated } = await sendTestEmail(to);
-    await audit({ actorId: req.user!.id, action: "TEST_EMAIL", detail: `${to}${simulated ? " (simulated)" : ""}` });
-    ok(res, { sent: true, simulated, outbox: getEmailOutbox().slice(0, 5) });
+    let result: { simulated: boolean; provider: string };
+    try {
+      result = await sendTestEmail(to);
+    } catch (e: any) {
+      // Surface the real provider error (Mailjet/SMTP) to the admin.
+      throw badRequest(String(e?.message || e || "Email send failed"));
+    }
+    await audit({ actorId: req.user!.id, action: "TEST_EMAIL", detail: `${to} via ${result.provider}${result.simulated ? " (simulated)" : ""}` });
+    ok(res, { sent: true, simulated: result.simulated, provider: result.provider, outbox: getEmailOutbox().slice(0, 5) });
   }),
 );
 

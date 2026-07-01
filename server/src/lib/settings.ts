@@ -25,12 +25,18 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   // ── Email Notifications ──────────────────────────────────────────
   "notifications.email": "false",
   "notifications.reminderHours": "24",
+  "email.provider": "smtp", // "smtp" | "mailjet"
   "smtp.host": "",
   "smtp.port": "587",
   "smtp.secure": "false",
   "smtp.user": "",
   "smtp.pass": "",
   "smtp.from": "eSign MICO360 <noreply@mico360.com>",
+  // Mailjet Send API (used when email.provider = "mailjet")
+  "mailjet.apiKey": "",
+  "mailjet.apiSecret": "",
+  "mailjet.fromEmail": "",
+  "mailjet.fromName": "eSign MICO360",
   // ── Security ─────────────────────────────────────────────────────
   "security.maxFailedLogins": "5",
   "security.lockoutMinutes": "15",

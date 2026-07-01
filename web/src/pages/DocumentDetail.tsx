@@ -72,7 +72,7 @@ export default function DocumentDetail() {
 
   if (!doc) return <Spinner />;
 
-  const myStep = doc.steps.find((s: any) => s.signatory.id === me!.id);
+  const myStep = doc.steps.find((s: any) => s.signatory?.id === me!.id);
   const canDecide = myStep && myStep.status === "PENDING" && ["PENDING_APPROVAL", "PARTIALLY_APPROVED"].includes(doc.status);
   const myApproved = myStep && myStep.status === "APPROVED";
   const canReopen = myApproved && !["CANCELLED", "REJECTED", "DRAFT"].includes(doc.status);
@@ -261,7 +261,7 @@ export default function DocumentDetail() {
             <ol style={{ paddingLeft: 18, margin: 0 }}>
               {doc.steps.map((s: any) => (
                 <li key={s.id} style={{ marginBottom: 8 }}>
-                  <strong>{s.signatory.fullName}</strong> — <StatusBadge status={s.status} />
+                  <strong>{s.signatory?.fullName || "Unknown user"}</strong> — <StatusBadge status={s.status} />
                   {s.approvalType && <span className="badge" style={{ background: "#1565c0", marginLeft: 6 }}>{s.approvalType.name}</span>}
                   {s.comment && <div className="muted" style={{ fontSize: 12 }}>"{s.comment}"</div>}
                 </li>
