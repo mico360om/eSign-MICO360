@@ -45,7 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = async () => {
     try {
-      setMe(await unwrap<Me>(api.get("/auth/me")));
+      const m = await unwrap<Me>(api.get("/auth/me"));
+      setMe(m);
+      // Stash identity for auto bug reports (read by the error reporter).
+      try { localStorage.setItem("userEmail", m.email); localStorage.setItem("userId", m.id); } catch {}
     } catch {
       setMe(null);
     }
@@ -81,6 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("token");
     localStorage.removeItem("rememberMe");
     localStorage.removeItem("lastActivity");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userId");
     setMe(null);
     location.href = "/login";
   };

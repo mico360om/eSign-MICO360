@@ -8,6 +8,17 @@ const net = require("net");
 // package name (@esign-mico360\desktop). Must be set before any getPath call.
 app.setName("eSign MICO360");
 
+// Auto-capture uncaught main-process errors to a crash log for later debugging.
+function logCrash(kind, err) {
+  try {
+    const dir = path.join(app.getPath("userData"), "crash-logs");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(path.join(dir, "crashes.log"), `[${new Date().toISOString()}] [${kind}] ${String(err?.stack || err)}\n`);
+  } catch { /* ignore */ }
+}
+process.on("uncaughtException", (err) => logCrash("uncaughtException", err));
+process.on("unhandledRejection", (err) => logCrash("unhandledRejection", err));
+
 // ── Paths (work both in dev and packaged) ───────────────────────────
 const VENDOR = path.join(__dirname, "vendor");
 // extraResources land in process.resourcesPath when packaged; in dev they're in vendor/
