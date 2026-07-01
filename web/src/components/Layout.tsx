@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../lib/auth";
+import { useAuth, markActivity } from "../lib/auth";
 import { api, unwrap } from "../lib/api";
 import UpdateNotifier from "./UpdateNotifier";
 
@@ -49,8 +49,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     unwrap<{ unread: number }>(api.get("/notifications")).then((d) => setUnread(d.unread)).catch(() => {});
   }, []);
-  // Close the mobile drawer whenever the route changes.
-  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
+  // Close the mobile drawer whenever the route changes; also refresh the
+  // "remember me" 30-day inactivity clock on navigation.
+  useEffect(() => { setDrawerOpen(false); markActivity(); }, [location.pathname]);
 
   // Idle auto-logout — driven by the security.autoLogoutInactiveMinutes setting.
   useEffect(() => {

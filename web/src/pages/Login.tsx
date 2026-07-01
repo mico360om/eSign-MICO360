@@ -7,6 +7,7 @@ export default function Login() {
   const [mode, setMode] = useState<"password" | "otp">("password");
   const [email, setEmail] = useState("admin@mico360.com");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [info, setInfo] = useState("");
@@ -16,7 +17,7 @@ export default function Login() {
 
   const submitPassword = async (e: FormEvent) => {
     e.preventDefault(); setErr(""); setBusy(true);
-    try { await login(email, password); } catch (e) { setErr(apiError(e)); } finally { setBusy(false); }
+    try { await login(email, password, rememberMe); } catch (e) { setErr(apiError(e)); } finally { setBusy(false); }
   };
 
   const requestOtp = async (e: FormEvent) => {
@@ -60,10 +61,16 @@ export default function Login() {
         </div>
 
         {mode === "password" ? (
-          <div className="field">
-            <label>Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin@123" />
-          </div>
+          <>
+            <div className="field">
+              <label>Password</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Admin@123" />
+            </div>
+            <label className="row" style={{ gap: 8, marginBottom: 14, fontSize: 13, cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: "auto" }} checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+              Remember me <span className="muted" style={{ fontSize: 12 }}>(stay signed in for 30 days)</span>
+            </label>
+          </>
         ) : otpSent ? (
           <div className="field">
             <label>Login code</label>

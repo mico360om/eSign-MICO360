@@ -508,6 +508,15 @@ function PositionGrid({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
+// Signature thumbnail with a visible fallback if the image can't be loaded.
+function MarkThumb({ url, label }: { url?: string; label: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!url || failed) {
+    return <div style={{ height: 48, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, background: "#f7f5f4", borderRadius: 4 }} className="muted" title={label}>✍</div>;
+  }
+  return <img src={url} alt={label} onError={() => setFailed(true)} style={{ width: "100%", height: 48, objectFit: "contain", background: "#fff" }} />;
+}
+
 // Apply a (preconfigured) signature or a company stamp during approval.
 // Do two normalized rectangles (top-left origin) overlap?
 function rectsOverlap(a: any, b: any) {
@@ -621,16 +630,18 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
           <label>Choose a saved signature</label>
           {marks.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-              {marks.map((m) => (
-                <button key={m.id} type="button" onClick={() => setSelMark(m.id)}
-                  style={{ width: 110, padding: 6, border: `2px solid ${selMark === m.id ? "var(--primary)" : "var(--border)"}`, borderRadius: 8, background: "#fff", cursor: "pointer" }}>
-                  {markUrls[m.id]
-                    ? <img src={markUrls[m.id]} alt={m.label} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} style={{ width: "100%", height: 40, objectFit: "contain", background: "#fff" }} />
-                    : <div style={{ height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }} className="muted">✍</div>}
-                  <div style={{ fontSize: 11, marginTop: 4 }} className="muted">{m.label}</div>
-                  {m.approvalTypeId && <div style={{ fontSize: 10 }}><span className="badge" style={{ background: "#1565c0", fontSize: 9 }}>{types.find((t) => t.id === m.approvalTypeId)?.name || "type"}</span></div>}
-                </button>
-              ))}
+              {marks.map((m) => {
+                const on = selMark === m.id;
+                return (
+                  <button key={m.id} type="button" onClick={() => setSelMark(m.id)}
+                    style={{ width: 128, padding: 6, position: "relative", border: `2px solid ${on ? "var(--primary)" : "var(--border)"}`, borderRadius: 8, background: on ? "var(--primary-soft)" : "#fff", cursor: "pointer" }}>
+                    {on && <span style={{ position: "absolute", top: -8, right: -8, background: "var(--primary)", color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" }}>✓</span>}
+                    <MarkThumb url={markUrls[m.id]} label={m.label} />
+                    <div style={{ fontSize: 11.5, marginTop: 5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.label}</div>
+                    {m.approvalTypeId && <div style={{ fontSize: 10, marginTop: 2 }}><span className="badge" style={{ background: "#1565c0", fontSize: 9 }}>{types.find((t) => t.id === m.approvalTypeId)?.name || "type"}</span></div>}
+                  </button>
+                );
+              })}
             </div>
           )}
           {!adding ? (
