@@ -8,9 +8,49 @@ import { authenticate } from "../middleware/auth";
 import { signatureUpload } from "../lib/upload";
 import { abs, rel } from "../lib/storage";
 
-// Self-service account settings (out-of-office / delegation / saved marks).
+// Self-service account settings (own profile / out-of-office / delegation / marks).
 const router = Router();
 router.use(authenticate);
+
+// ── Own profile: any user (admin or not) can view & edit their own details ──
+router.get(
+  "/profile",
+  asyncHandler(async (req, res) => {
+    const u = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { id: true, fullName: true, email: true, phone: true, department: true, designation: true, role: { select: { name: true } } },
+    });
+    if (!u) throw notFound("User not found");
+    ok(res, u);
+  }),
+);
+
+router.put(
+  "/profile",
+  asyncHandler(async (req, res) => {
+    // Email and role stay admin-controlled; users edit their own personal fields.
+    const body = z
+      .object({
+        fullName: z.string().min(1).optional(),
+        phone: z.string().nullable().optional(),
+        department: z.string().nullable().optional(),
+        designation: z.string().nullable().optional(),
+      })
+      .parse(req.body);
+    const u = await prisma.user.update({
+      where: { id: req.user!.id },
+      data: {
+        ...(body.fullName !== undefined ? { fullName: body.fullName.trim() } : {}),
+        ...(body.phone !== undefined ? { phone: body.phone } : {}),
+        ...(body.department !== undefined ? { department: body.department } : {}),
+        ...(body.designation !== undefined ? { designation: body.designation } : {}),
+      },
+      select: { id: true, fullName: true, email: true, phone: true, department: true, designation: true },
+    });
+    await audit({ actorId: req.user!.id, action: "UPDATE_OWN_PROFILE", entity: "User", entityId: req.user!.id });
+    ok(res, u);
+  }),
+);
 
 router.get(
   "/availability",

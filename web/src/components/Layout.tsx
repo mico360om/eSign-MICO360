@@ -1,12 +1,12 @@
 import { ReactNode, useEffect, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { api, unwrap } from "../lib/api";
 import UpdateNotifier from "./UpdateNotifier";
 
 interface NavItem { to: string; label: string; ico: string; perm?: string }
 const NAV: NavItem[] = [
-  { to: "/", label: "Dashboard", ico: "▦", perm: "VIEW_REPORTS" },
+  { to: "/", label: "Dashboard", ico: "▦" }, // available to everyone (personal stats)
   { to: "/documents", label: "Documents", ico: "📄" },
   { to: "/users", label: "Users", ico: "👤", perm: "MANAGE_USERS" },
   { to: "/profiles", label: "Companies", ico: "🗂", perm: "MANAGE_PROFILES" },
@@ -19,8 +19,21 @@ const NAV: NavItem[] = [
   { to: "/settings", label: "Settings", ico: "⚙", perm: "MANAGE_SETTINGS" },
 ];
 
+// Documents sub-menu — filter the list by status via ?status=...
+const DOC_STATUS_LINKS: { label: string; status: string }[] = [
+  { label: "All Documents", status: "" },
+  { label: "Draft / Unsubmitted", status: "PDF_CONVERTED" },
+  { label: "Pending Approval", status: "PENDING_APPROVAL" },
+  { label: "Pending Signature", status: "PENDING_SIGNATURE" },
+  { label: "Approved", status: "APPROVED" },
+  { label: "Completed", status: "COMPLETED" },
+  { label: "Rejected", status: "REJECTED" },
+  { label: "Cancelled", status: "CANCELLED" },
+];
+
 // Help & Legal — available to every authenticated user (no permission gate).
 const HELP_NAV: NavItem[] = [
+  { to: "/account", label: "My Account", ico: "👤" },
   { to: "/legal/about", label: "About Us", ico: "ℹ" },
   { to: "/legal/privacy", label: "Privacy Policy", ico: "🔒" },
   { to: "/legal/terms", label: "Terms & Conditions", ico: "📜" },
@@ -70,11 +83,34 @@ export default function Layout({ children }: { children: ReactNode }) {
       <aside className={`sidebar ${drawerOpen ? "open" : ""}`}>
         <div className="logo"><img src="/logo.png" alt="eSign MICO360" /></div>
         <nav className="nav">
-          {items.map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => (isActive ? "active" : "")}>
-              <span className="ico">{n.ico}</span> {n.label}
-            </NavLink>
-          ))}
+          {items.map((n) => {
+            if (n.to === "/documents") {
+              const inDocs = location.pathname.startsWith("/documents");
+              const curStatus = new URLSearchParams(location.search).get("status") || "";
+              return (
+                <div key={n.to}>
+                  <NavLink to="/documents" end className={({ isActive }) => (isActive && !curStatus ? "active" : "")}>
+                    <span className="ico">{n.ico}</span> {n.label}
+                  </NavLink>
+                  {inDocs && (
+                    <div className="nav-sub">
+                      {DOC_STATUS_LINKS.map((s) => (
+                        <Link key={s.status || "all"} to={`/documents${s.status ? `?status=${s.status}` : ""}`}
+                          className={location.pathname === "/documents" && curStatus === s.status ? "active" : ""}>
+                          {s.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return (
+              <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => (isActive ? "active" : "")}>
+                <span className="ico">{n.ico}</span> {n.label}
+              </NavLink>
+            );
+          })}
           <div className="nav-section">Help &amp; Legal</div>
           {HELP_NAV.map((n) => (
             <NavLink key={n.to} to={n.to} className={({ isActive }) => (isActive ? "active" : "")}>
@@ -97,7 +133,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             </button>
           </div>
           <div className="row">
-            <div style={{ textAlign: "right" }}>
+            <div style={{ textAlign: "right", cursor: "pointer" }} onClick={() => nav("/account")} title="My Account">
               <div style={{ fontWeight: 600 }}>{me?.fullName}</div>
               <div className="muted" style={{ fontSize: 12 }}>{me?.role}</div>
             </div>

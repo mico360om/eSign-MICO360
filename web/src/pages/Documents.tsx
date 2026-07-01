@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, apiError, unwrap } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Modal, StatusBadge, useToast } from "../components/ui";
@@ -17,9 +17,10 @@ export default function Documents() {
   const { me, can } = useAuth();
   const toast = useToast();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const [docs, setDocs] = useState<any[] | null>(null);
   const [err, setErr] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(searchParams.get("status") || "");
   const [priority, setPriority] = useState("");
   const [profileFilter, setProfileFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -43,6 +44,9 @@ export default function Documents() {
     load();
     if (can("MANAGE_PROFILES")) unwrap(api.get("/profiles")).then(setAllProfiles).catch(() => {});
   }, []);
+
+  // Sync the status filter when navigated via the sidebar sub-menu (?status=...).
+  useEffect(() => { setStatus(searchParams.get("status") || ""); }, [searchParams]);
 
   useEffect(() => { load(); }, [status, priority, profileFilter, dateFrom, dateTo]);
 
