@@ -99,8 +99,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 /* Layout */
 .app { display: flex; min-height: 100vh; }
 .sidebar { width: 240px; background: var(--ink); color: #fff; display: flex; flex-direction: column; flex-shrink: 0; }
-.sidebar .logo { padding: 20px 16px; background: #fff; text-align: center; }
-.sidebar .logo img { width: 100%; max-width: 216px; }
+.sidebar .logo { padding: 14px 16px; background: #fff; text-align: center; }
+.sidebar .logo img { width: auto; max-width: 150px; max-height: 44px; object-fit: contain; }
 .nav { padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .nav a { color: #d8d6d4; padding: 10px 14px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 11px; font-weight: 500; font-size: 13.5px; }
 .nav a:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
