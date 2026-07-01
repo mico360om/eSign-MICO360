@@ -8,6 +8,15 @@ import { EMBEDDED_FONT_B64 } from "../assets/font";
 const IMG_EXT = new Set([".png", ".jpg", ".jpeg"]);
 const FONT_BYTES = Buffer.from(EMBEDDED_FONT_B64, "base64");
 
+// Optional HTML→PDF renderer injected by the desktop shell (Electron's
+// printToPDF). When present, Word documents are rendered with real layout
+// without needing LibreOffice. Standalone/server runs leave this null.
+type HtmlToPdf = (html: string) => Promise<Buffer | Uint8Array>;
+let htmlToPdf: HtmlToPdf | null = null;
+export function setHtmlToPdf(fn: HtmlToPdf | null) {
+  htmlToPdf = fn;
+}
+
 // Embed our own TrueType font so generated PDFs render in pdf.js without needing
 // the (sometimes flaky) standard-font data files in the browser/Electron.
 async function embedAppFont(pdf: PDFDocument) {
@@ -46,14 +55,50 @@ export async function convertToPdf(originalAbsPath: string, originalName: string
   } else if (ext === ".txt") {
     await renderTextPdf(pdf, fs.readFileSync(originalAbsPath, "utf8"));
   } else {
-    // Office / unsupported binary: try soffice, else emit an honest cover page.
+    // Office / unsupported binary. In order of fidelity:
+    //  1) LibreOffice (soffice) if installed — best fidelity, all Office types.
     const converted = await convertOfficeWithSoffice(originalAbsPath, outPath);
     if (converted) return outPath;
+    //  2) Word (.docx) via mammoth → HTML → PDF using the desktop shell's
+    //     printer. Bundled in the installer, so no external tools are required.
+    if (ext === ".docx" && htmlToPdf) {
+      const buf = await convertDocxViaHtml(originalAbsPath).catch(() => null);
+      if (buf) {
+        fs.writeFileSync(outPath, Buffer.from(buf));
+        return outPath;
+      }
+    }
+    //  3) Honest cover page fallback (xlsx/pptx without LibreOffice, etc.).
     await renderCoverPdf(pdf, originalName, ext);
   }
 
   fs.writeFileSync(outPath, await pdf.save());
   return outPath;
+}
+
+/**
+ * Convert a .docx to PDF without LibreOffice: mammoth renders the document to
+ * clean HTML (text, headings, lists, tables, inline images), which the injected
+ * desktop renderer (Electron printToPDF) turns into a real, paginated PDF.
+ */
+async function convertDocxViaHtml(srcAbs: string): Promise<Buffer | Uint8Array | null> {
+  if (!htmlToPdf) return null;
+  const mammoth = await import("mammoth");
+  const { value: body } = await mammoth.convertToHtml(
+    { path: srcAbs },
+    { convertImage: (mammoth as any).images.imgElement((img: any) => img.read("base64").then((data: string) => ({ src: `data:${img.contentType};base64,${data}` }))) },
+  );
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+    @page { margin: 18mm; }
+    body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; font-size: 11.5pt; color: #1e1f1e; line-height: 1.5; margin: 0; }
+    h1,h2,h3,h4 { color: #1e1f1e; margin: 0.6em 0 0.3em; }
+    p { margin: 0 0 0.5em; }
+    table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+    td, th { border: 1px solid #bfbfbf; padding: 5px 8px; vertical-align: top; }
+    img { max-width: 100%; height: auto; }
+    ul, ol { margin: 0.3em 0 0.6em 1.4em; }
+  </style></head><body>${body}</body></html>`;
+  return htmlToPdf!(html);
 }
 
 async function renderTextPdf(pdf: PDFDocument, text: string) {
