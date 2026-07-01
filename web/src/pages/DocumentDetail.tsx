@@ -232,7 +232,7 @@ export default function DocumentDetail() {
 
       {showSubmit && <SubmitModal docId={id!} profileId={doc.profile.id} onClose={() => setShowSubmit(false)} onDone={() => { setShowSubmit(false); toast("Submitted for approval"); load(); }} onError={(m: string) => toast(m, true)} />}
       {showEdit && <EditDetailsModal doc={doc} isAdmin={can("MANAGE_PROFILES")} myProfiles={me!.profiles} onClose={() => setShowEdit(false)} onDone={() => { setShowEdit(false); toast("Details updated"); load(); }} onError={(m: string) => toast(m, true)} />}
-      {showApply && <ApplyMarkModal docId={id!} profileId={doc.profile.id} pageCount={pageCount} canSign={can("SIGN")} canStamp={can("USE_STAMP")} requestedType={myStep?.approvalType} onClose={() => setShowApply(false)} onDone={() => { setShowApply(false); toast("Applied to PDF"); load(); }} onError={(m: string) => toast(m, true)} />}
+      {showApply && <ApplyMarkModal docId={id!} profileId={doc.profile.id} pageCount={pageCount} canSign={can("SIGN")} canStamp={can("USE_STAMP")} requestedType={myStep?.approvalType} stampedPages={(doc.placements || []).filter((p: any) => p.kind === "STAMP").map((p: any) => p.page)} onClose={() => setShowApply(false)} onDone={(msg?: string) => { setShowApply(false); toast(msg || "Applied to PDF"); load(); }} onError={(m: string) => toast(m, true)} />}
     </div>
   );
 }
@@ -435,7 +435,8 @@ function PositionGrid({ value, onChange }: { value: string; onChange: (v: string
 }
 
 // Apply a (preconfigured) signature or a company stamp during approval.
-function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, requestedType, onClose, onDone, onError }: any) {
+function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, requestedType, stampedPages = [], onClose, onDone, onError }: any) {
+  const stampedSet = new Set<number>(stampedPages);
   const [kind, setKind] = useState<"SIGNATURE" | "STAMP">(canSign ? "SIGNATURE" : "STAMP");
   const [marks, setMarks] = useState<any[]>([]);
   const [markUrls, setMarkUrls] = useState<Record<string, string>>({});
@@ -501,9 +502,15 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
       } else {
         if (!stampId) throw new Error("Select a stamp");
         const coords = pos === "saved" ? POSITIONS["bottom-right"] : POSITIONS[pos];
-        for (const pg of pages) {
+        // One stamp per page: skip pages that already carry a company stamp.
+        const target = pages.filter((pg) => !stampedSet.has(pg));
+        const skipped = pages.length - target.length;
+        if (target.length === 0) throw new Error(pages.length === 1 ? "This page already has a company stamp (one stamp per page)." : "All selected pages already have a company stamp (one stamp per page).");
+        for (const pg of target) {
           await api.post(`/documents/${docId}/placements`, { kind: "STAMP", stampId, page: pg, width: 0.26, height: 0.12, ...coords });
         }
+        onDone(skipped > 0 ? `Stamp applied to ${target.length} page(s); ${skipped} already stamped (skipped)` : undefined);
+        return;
       }
       onDone();
     } catch (e: any) { onError(e?.response ? apiError(e) : e.message); } finally { setBusy(false); }
@@ -555,9 +562,10 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
           {marks.length === 0 && !adding && <p className="muted" style={{ fontSize: 12 }}>No saved signatures yet — add one.</p>}
         </div>
       ) : (
-        <div className="field"><label>Stamp</label>
+        <div className="field"><label>Company stamp</label>
           <select value={stampId} onChange={(e) => setStampId(e.target.value)}>{stamps.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           {stamps.length === 0 && <p className="muted" style={{ fontSize: 12 }}>No stamps available in this company.</p>}
+          <p className="muted" style={{ fontSize: 12 }}>One company stamp per page. Pages already stamped are skipped automatically.{stampedSet.size > 0 ? ` Currently stamped: page ${[...stampedSet].sort((a, b) => a - b).join(", ")}.` : ""}</p>
         </div>
       )}
 

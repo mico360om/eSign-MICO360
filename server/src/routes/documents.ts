@@ -542,6 +542,11 @@ router.post(
       if (!body.stampId) throw badRequest("stampId is required for a stamp placement");
       const stamp = await prisma.stamp.findUnique({ where: { id: body.stampId } });
       if (!stamp || !stamp.isActive) throw notFound("Stamp not found");
+      // Rule: at most ONE company stamp per page (signatures are unlimited).
+      const existingStamp = await prisma.placement.findFirst({
+        where: { documentId: doc.id, page: body.page, kind: "STAMP" },
+      });
+      if (existingStamp) throw badRequest(`Page ${body.page} already has a company stamp — only one stamp is allowed per page.`);
       imagePath = stamp.imagePath;
       await prisma.stampUsage.create({ data: { stampId: stamp.id, userId: req.user!.id, documentId: doc.id } });
     }
