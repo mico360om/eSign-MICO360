@@ -326,6 +326,7 @@ model AuditLog {
   entityId  String?
   detail    String?
   ip        String?
+  device    String?
   // Tamper-evident hash chain: hash = SHA-256(prevHash + canonical fields)
   prevHash  String?
   hash      String?

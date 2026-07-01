@@ -13,6 +13,28 @@ export default function Reports() {
     unwrap(api.get("/reports/me")).then(setMine).catch(() => {});
   }, []);
 
+  const exportCsv = () => {
+    const esc = (v: any) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const lines: string[][] = [["Section", "Item", "Count"]];
+    if (mine) {
+      lines.push(["My Activity", "Uploaded by me", mine.uploaded], ["My Activity", "Pending my approval", mine.pendingMyApproval],
+        ["My Activity", "Signed by me", mine.signedByMe], ["My Activity", "Rejected by me", mine.rejectedByMe], ["My Activity", "Completed", mine.completed]);
+    }
+    if (admin) {
+      Object.entries(admin.byStatus || {}).forEach(([k, v]) => lines.push(["By Status", String(k).replace(/_/g, " "), v as any]));
+      (admin.byProfile || []).forEach((p: any) => lines.push(["By Company", p.profile, p.count]));
+      (admin.stampUsage || []).forEach((s: any) => lines.push(["Stamp Usage", s.stamp, s.count]));
+      (admin.topUploaders || []).forEach((u: any) => lines.push(["Top Uploaders", u.user, u.count]));
+      lines.push(["Approval", "Avg hours to completion", admin.avgApprovalDelayHours], ["Approval", "Completed", admin.completed],
+        ["Approval", "Rejected", admin.rejected], ["Approval", "Pending", admin.pendingApprovals]);
+    }
+    const csv = "﻿" + lines.map((r) => r.map(esc).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `reports-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+
   const Bar = ({ label, val, max }: { label: string; val: number; max: number }) => (
     <div style={{ marginBottom: 8 }}>
       <div className="between" style={{ fontSize: 13 }}><span>{label}</span><strong>{val}</strong></div>
@@ -24,7 +46,13 @@ export default function Reports() {
 
   return (
     <div>
-      <h1 className="page-title">Reports</h1>
+      <div className="between no-print" style={{ marginBottom: 18 }}>
+        <h1 className="page-title" style={{ margin: 0 }}>Reports</h1>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn btn-ghost" onClick={exportCsv}>⬇ Export CSV</button>
+          <button className="btn btn-ghost" onClick={() => window.print()}>🖨 Print / PDF</button>
+        </div>
+      </div>
 
       {mine && (
         <div className="card card-pad" style={{ marginBottom: 18 }}>

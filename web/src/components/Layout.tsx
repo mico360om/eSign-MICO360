@@ -38,6 +38,29 @@ export default function Layout({ children }: { children: ReactNode }) {
   // Close the mobile drawer whenever the route changes.
   useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
+  // Idle auto-logout — driven by the security.autoLogoutInactiveMinutes setting.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let mins = 0;
+    const events = ["mousemove", "keydown", "click", "scroll", "touchstart"];
+    const reset = () => {
+      if (timer) clearTimeout(timer);
+      if (mins > 0) timer = setTimeout(() => {
+        try { sessionStorage.setItem("logoutReason", "inactivity"); } catch {}
+        logout();
+      }, mins * 60_000);
+    };
+    unwrap<Record<string, string>>(api.get("/settings")).then((s) => {
+      mins = Number(s["security.autoLogoutInactiveMinutes"]) || 0;
+      if (mins > 0) {
+        events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+        reset();
+      }
+    }).catch(() => {});
+    return () => { if (timer) clearTimeout(timer); events.forEach((e) => window.removeEventListener(e, reset)); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const items = NAV.filter((n) => !n.perm || can(n.perm));
 
   return (

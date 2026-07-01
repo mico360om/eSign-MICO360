@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { sha256 } from "./integrity";
+import { getReqCtx } from "./requestContext";
 
 /** Canonical serialization of the hash-relevant fields of an audit entry. */
 export function canonicalAudit(e: {
@@ -34,8 +35,14 @@ export async function audit(params: {
   entityId?: string;
   detail?: string;
   ip?: string;
+  device?: string;
 }) {
   try {
+    // Pull IP + device from the per-request context unless explicitly provided.
+    const ctx = getReqCtx();
+    const ip = params.ip ?? ctx.ip ?? undefined;
+    const device = params.device ?? ctx.device ?? undefined;
+
     // Run inside a serialized transaction so concurrent requests can't race
     // and read the same prevHash, which would break the hash chain.
     await prisma.$transaction(async (tx) => {
@@ -45,7 +52,9 @@ export async function audit(params: {
       });
       const prevHash = prev?.hash ?? "";
       const createdAt = new Date();
-      const hash = sha256(prevHash + canonicalAudit({ ...params, createdAt }));
+      // NOTE: `device` is stored for context but intentionally NOT part of the
+      // hash chain, so adding it doesn't invalidate historical entries.
+      const hash = sha256(prevHash + canonicalAudit({ ...params, ip, createdAt }));
       await tx.auditLog.create({
         data: {
           actorId: params.actorId ?? null,
@@ -53,7 +62,8 @@ export async function audit(params: {
           entity: params.entity,
           entityId: params.entityId,
           detail: params.detail,
-          ip: params.ip,
+          ip,
+          device,
           prevHash,
           hash,
           createdAt,

@@ -7,6 +7,7 @@ import path from "path";
 import { env } from "./config/env";
 import { dirs } from "./lib/storage";
 import { errorHandler, notFoundHandler } from "./middleware/error";
+import { requestContext } from "./lib/requestContext";
 
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
@@ -43,6 +44,14 @@ export function createApp() {
   );
   app.use(express.json({ limit: "5mb" }));
   app.use(morgan(env.nodeEnv === "development" ? "dev" : "combined"));
+
+  // Capture caller IP + device for the audit log (read via AsyncLocalStorage).
+  app.set("trust proxy", true);
+  app.use((req, _res, next) => {
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || req.socket.remoteAddress || "";
+    const device = (req.headers["user-agent"] as string) || "";
+    requestContext.run({ ip, device }, () => next());
+  });
 
   app.get("/api/health", (_req, res) => res.json({ status: "ok", service: "eSign MICO360 API" }));
 
