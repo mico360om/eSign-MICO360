@@ -163,6 +163,15 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
   a { color: var(--ink) !important; }
 }
 
+/* Global update-available banner (desktop) */
+.update-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 9px 18px; background: var(--primary); color: #fff; font-size: 13.5px; font-weight: 500; }
+.update-banner .update-banner-msg strong { font-weight: 700; }
+.update-banner-actions { display: flex; align-items: center; gap: 8px; }
+.update-banner .btn { background: #fff; color: var(--primary); border-color: #fff; font-weight: 700; }
+.update-banner .btn:hover:not(:disabled) { background: var(--primary-soft); }
+.update-banner-x { background: transparent; border: none; color: #fff; cursor: pointer; font-size: 15px; opacity: 0.85; padding: 2px 6px; }
+.update-banner-x:hover { opacity: 1; }
+
 .toast { position: fixed; bottom: 22px; right: 22px; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); z-index: 100; max-width: 90vw; }
 .toast.err { background: var(--danger); }
 .checklist { display: flex; flex-wrap: wrap; gap: 8px; }

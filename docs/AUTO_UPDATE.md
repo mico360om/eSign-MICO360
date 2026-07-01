@@ -22,7 +22,26 @@ The desktop app updates itself from **GitHub Releases** of
 - **Optional vs forced:** add the token `[forced]` anywhere in a GitHub release's
   notes to make that update mandatory (auto-downloads and is marked *Required*).
 
-## Publishing an update (maintainer)
+## Publishing an update — both platforms (recommended)
+
+A GitHub Actions workflow (`.github/workflows/release.yml`) builds and publishes
+**Windows and macOS together** for every version tag, so both platforms always
+get the update:
+
+```bash
+# 1) Bump version in desktop/package.json (and web APP_INFO for the About page)
+# 2) Commit, then tag and push:
+git commit -am "Release v1.0.3"
+git tag v1.0.3
+git push origin main --tags
+```
+
+The workflow runs on `windows-latest` + `macos-latest` and uploads the `.exe`
++ `latest.yml` and the `.dmg`/`.zip` + `latest-mac.yml` to the release for that
+tag. Windows clients read `latest.yml`; macOS clients read `latest-mac.yml`.
+No Mac hardware needed locally.
+
+## Publishing manually (single platform)
 1. Bump `version` in `desktop/package.json` (e.g. `1.0.1`).
 2. Build the installers:
    - Windows: `npm run -w desktop dist`

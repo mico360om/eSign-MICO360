@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { api, unwrap } from "../lib/api";
+import UpdateNotifier from "./UpdateNotifier";
 
 interface NavItem { to: string; label: string; ico: string; perm?: string }
 const NAV: NavItem[] = [
@@ -87,6 +88,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="main">
+        <UpdateNotifier />
         <header className="topbar">
           <div className="row">
             <button className="hamburger" aria-label="Menu" onClick={() => setDrawerOpen((o) => !o)}>☰</button>
