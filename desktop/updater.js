@@ -135,6 +135,13 @@ function setup(win) {
   });
 
   autoUpdater.on("error", (err) => {
+    // "No release published yet" is not an error — it just means the user is on
+    // the latest available build. Report it as up-to-date, not a red failure.
+    if (isNoRelease(err)) {
+      logEvent({ event: "no-release", status: "up-to-date" });
+      send("updates:event", { type: "up-to-date", currentVersion: app.getVersion() });
+      return;
+    }
     const message = classifyError(err);
     logEvent({ event: "error", status: "error", error: String(err?.stack || err), friendly: message });
     send("updates:event", { type: "error", error: message });
@@ -148,6 +155,19 @@ function setup(win) {
     setImmediate(() => autoUpdater.quitAndInstall(false, true));
     return { ok: true };
   });
+}
+
+// Distinguish "the repo has no published release yet" from real failures.
+function isNoRelease(err) {
+  const s = String(err?.message || err || "").toLowerCase();
+  return (
+    s.includes("404") ||
+    s.includes("no published versions") ||
+    s.includes("latest.yml") ||
+    s.includes("cannot find latest") ||
+    s.includes("unable to find latest") ||
+    s.includes("no release")
+  );
 }
 
 function classifyError(err) {
@@ -182,6 +202,12 @@ async function doCheck(silent) {
     };
   } catch (err) {
     checking = false;
+    // No release published yet → treat as "up to date", not a red error.
+    if (isNoRelease(err)) {
+      logEvent({ event: "no-release", status: "up-to-date" });
+      send("updates:event", { type: "up-to-date", currentVersion: app.getVersion() });
+      return { supported: true, ok: true, updateAvailable: false, noRelease: true, currentVersion: app.getVersion() };
+    }
     const message = classifyError(err);
     logEvent({ event: "check-failed", status: "error", error: String(err), friendly: message });
     send("updates:event", { type: "error", error: message });
