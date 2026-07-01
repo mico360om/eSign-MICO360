@@ -16,6 +16,7 @@ const NAV: NavItem[] = [
   { to: "/approval-types", label: "Approval Types", ico: "✅", perm: "MANAGE_SETTINGS" },
   { to: "/reports", label: "Reports", ico: "📊", perm: "VIEW_REPORTS" },
   { to: "/audit", label: "Audit Log", ico: "🛡", perm: "VIEW_REPORTS" },
+  { to: "/error-log", label: "Error Log", ico: "🐞", perm: "VIEW_REPORTS" },
   { to: "/settings", label: "Settings", ico: "⚙", perm: "MANAGE_SETTINGS" },
 ];
 

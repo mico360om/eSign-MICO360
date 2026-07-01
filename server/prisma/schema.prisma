@@ -340,3 +340,23 @@ model SystemSetting {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+// Auto-captured error/crash reports (server 5xx, client crashes, unhandled
+// rejections) for later debugging. Viewable/exportable by admins.
+model ErrorReport {
+  id         String   @id @default(cuid())
+  source     String // "server" | "client" | "desktop"
+  message    String
+  stack      String?
+  url        String? // route or API endpoint
+  method     String?
+  status     Int?
+  userId     String?
+  userEmail  String?
+  userAgent  String?
+  appVersion String?
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([resolved, createdAt])
+}
