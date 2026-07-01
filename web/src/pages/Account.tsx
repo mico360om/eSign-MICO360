@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, apiError, unwrap } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Spinner, useToast } from "../components/ui";
+import SignatureManager from "../components/SignatureManager";
 
 export default function Account() {
   const toast = useToast();
@@ -57,6 +58,8 @@ export default function Account() {
           </div>
           <button className="btn btn-primary" disabled={busy} onClick={saveProfile}>{busy ? "Saving…" : "Save Profile"}</button>
         </div>
+
+        <SignatureManager />
 
         <div className="card card-pad">
           <h3 style={{ margin: "0 0 16px", fontSize: 15, borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>Change Password</h3>

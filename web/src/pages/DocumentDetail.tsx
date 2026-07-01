@@ -5,6 +5,22 @@ import { useAuth } from "../lib/auth";
 import { Modal, Spinner, StatusBadge, useToast } from "../components/ui";
 import { PdfCanvas, Overlay } from "../components/PdfCanvas";
 
+// Friendly labels for the document history timeline.
+const EVENT_LABEL: Record<string, string> = {
+  UPLOADED: "Document uploaded",
+  CONVERTED: "Converted to PDF",
+  SUBMITTED: "Submitted for approval",
+  SIGNED: "Signature applied",
+  STAMPED: "Company stamp applied",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  COMPLETED: "Completed & finalized",
+  CANCELLED: "Cancelled",
+  REOPENED: "Reopened for edit",
+  UPDATED: "Details updated",
+  DELEGATED: "Delegated",
+};
+
 export default function DocumentDetail() {
   const { id } = useParams();
   const { me, can, refresh } = useAuth();
@@ -21,6 +37,7 @@ export default function DocumentDetail() {
   const [stampSkip, setStampSkip] = useState(false);
   const [verify, setVerify] = useState<any>(null);
   const [pageCount, setPageCount] = useState(1);
+  const [viewPdf, setViewPdf] = useState<{ kind: string; data: ArrayBuffer } | null>(null);
   const nav = useNavigate();
 
   const load = async () => {
@@ -105,6 +122,15 @@ export default function DocumentDetail() {
     catch (e) { toast(apiError(e), true); }
   };
 
+  // Open a PDF (original/converted/final) full-screen in-app — works in both the
+  // web and desktop builds (renders via pdf.js), unlike a blob-URL new tab.
+  const openPdf = async (kind: string) => {
+    try {
+      const res = await api.get(`/documents/${id}/view/${kind}`, { responseType: "arraybuffer" });
+      setViewPdf({ kind, data: res.data as ArrayBuffer });
+    } catch (e) { toast(apiError(e), true); }
+  };
+
   const download = async (kind: string) => {
     try {
       const res = await api.get(`/documents/${id}/download/${kind}`, { responseType: "blob" });
@@ -178,11 +204,20 @@ export default function DocumentDetail() {
             )}
             {!canSubmit && !canDecide && !canReopen && <p className="muted" style={{ margin: 0 }}>No actions available at this stage.</p>}
             <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "14px 0" }} />
+            {doc.finalPdfPath && (
+              <>
+                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Final signed PDF</div>
+                <div className="row" style={{ flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                  <button className="btn btn-primary btn-sm" onClick={() => openPdf("final")}>📄 Open Final PDF</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => download("final")}>Download</button>
+                </div>
+              </>
+            )}
             <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Downloads</div>
             <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
               <button className="btn btn-ghost btn-sm" onClick={() => download("original")}>Original</button>
               <button className="btn btn-ghost btn-sm" onClick={() => download("converted")}>Converted PDF</button>
-              {doc.finalPdfPath && <button className="btn btn-ghost btn-sm" onClick={() => download("final")}>Final Signed PDF</button>}
+              <button className="btn btn-ghost btn-sm" onClick={() => openPdf("converted")}>Open Converted</button>
             </div>
           </div>
 
@@ -239,12 +274,17 @@ export default function DocumentDetail() {
           <div className="card card-pad">
             <h3>History & Audit Trail</h3>
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {doc.events?.map((e: any) => (
-                <li key={e.id} style={{ padding: "6px 0", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
-                  <strong>{e.action.replace(/_/g, " ")}</strong> {e.detail && <span className="muted">— {e.detail}</span>}
-                  <div className="muted" style={{ fontSize: 11 }}>{new Date(e.createdAt).toLocaleString()}</div>
+              {(doc.events || []).map((e: any) => (
+                <li key={e.id} style={{ padding: "8px 0 8px 14px", borderLeft: "2px solid var(--border)", marginLeft: 4, position: "relative", fontSize: 13 }}>
+                  <span style={{ position: "absolute", left: -5, top: 12, width: 8, height: 8, borderRadius: "50%", background: "var(--primary)" }} />
+                  <strong>{EVENT_LABEL[e.action] || e.action.replace(/_/g, " ")}</strong>
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    by {e.actorName || "System"} · {new Date(e.createdAt).toLocaleString()}
+                  </div>
+                  {e.detail && <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{e.detail}</div>}
                 </li>
               ))}
+              {(!doc.events || doc.events.length === 0) && <li className="muted" style={{ fontSize: 13 }}>No history yet.</li>}
             </ul>
           </div>
         </div>
@@ -252,7 +292,21 @@ export default function DocumentDetail() {
 
       {showSubmit && <SubmitModal docId={id!} profileId={doc.profile.id} onClose={() => setShowSubmit(false)} onDone={() => { setShowSubmit(false); toast("Submitted for approval"); load(); }} onError={(m: string) => toast(m, true)} />}
       {showEdit && <EditDetailsModal doc={doc} isAdmin={can("MANAGE_PROFILES")} myProfiles={me!.profiles} onClose={() => setShowEdit(false)} onDone={() => { setShowEdit(false); toast("Details updated"); load(); }} onError={(m: string) => toast(m, true)} />}
-      {showApply && <ApplyMarkModal docId={id!} profileId={doc.profile.id} pageCount={pageCount} canSign={can("SIGN")} canStamp={can("USE_STAMP")} requestedType={myStep?.approvalType} initialKind={applyInitialKind} stampedPages={(doc.placements || []).filter((p: any) => p.kind === "STAMP").map((p: any) => p.page)} onClose={() => { setShowApply(false); setApplyInitialKind(null); }} onDone={(msg?: string) => { setShowApply(false); setApplyInitialKind(null); toast(msg || "Applied to PDF"); load(); }} onError={(m: string) => toast(m, true)} />}
+      {viewPdf && (
+        <div className="modal-bg" style={{ padding: 12, zIndex: 60 }} onClick={() => setViewPdf(null)}>
+          <div style={{ background: "#fff", borderRadius: 10, width: "100%", maxWidth: 1000, height: "92vh", display: "flex", flexDirection: "column", overflow: "hidden" }} onClick={(e) => e.stopPropagation()}>
+            <div className="between" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+              <strong>{doc.title} — {viewPdf.kind === "final" ? "Final Signed PDF" : "Converted PDF"}</strong>
+              <div className="row" style={{ gap: 8 }}>
+                <button className="btn btn-ghost btn-sm" onClick={() => download(viewPdf.kind)}>Download</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setViewPdf(null)}>Close ✕</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflow: "hidden" }}><PdfCanvas data={viewPdf.data} /></div>
+          </div>
+        </div>
+      )}
+      {showApply && <ApplyMarkModal docId={id!} profileId={doc.profile.id} pageCount={pageCount} canSign={can("SIGN")} canStamp={can("USE_STAMP")} requestedType={myStep?.approvalType} initialKind={applyInitialKind} stampedPages={(doc.placements || []).filter((p: any) => p.kind === "STAMP").map((p: any) => p.page)} existingPlacements={(doc.placements || []).map((p: any) => ({ page: p.page, x: p.x, y: p.y, width: p.width, height: p.height }))} onClose={() => { setShowApply(false); setApplyInitialKind(null); }} onDone={(msg?: string) => { setShowApply(false); setApplyInitialKind(null); toast(msg || "Applied to PDF"); load(); }} onError={(m: string) => toast(m, true)} />}
     </div>
   );
 }
@@ -455,7 +509,12 @@ function PositionGrid({ value, onChange }: { value: string; onChange: (v: string
 }
 
 // Apply a (preconfigured) signature or a company stamp during approval.
-function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, requestedType, stampedPages = [], initialKind, onClose, onDone, onError }: any) {
+// Do two normalized rectangles (top-left origin) overlap?
+function rectsOverlap(a: any, b: any) {
+  return !(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y);
+}
+
+function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, requestedType, stampedPages = [], existingPlacements = [], initialKind, onClose, onDone, onError }: any) {
   const docHasStamp = stampedPages.length > 0;
   const [kind, setKind] = useState<"SIGNATURE" | "STAMP">(initialKind || (canSign ? "SIGNATURE" : "STAMP"));
   const [marks, setMarks] = useState<any[]>([]);
@@ -507,6 +566,16 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
     setAdding(false);
   };
 
+  // Warn (and let the user choose) if a placement would overlap an existing
+  // signature/stamp on the same page — marks should not cover each other.
+  const overlapOk = (pages: number[], x: number, y: number, w: number, h: number) => {
+    const hit = pages.some((pg) =>
+      existingPlacements.some((p: any) => p.page === pg && rectsOverlap({ x, y, width: w, height: h }, p)),
+    );
+    if (!hit) return true;
+    return window.confirm("This position overlaps an existing signature or stamp on the page. Signatures and stamps look best when they don't cover each other.\n\nPlace it here anyway? (Cancel to pick a different position.)");
+  };
+
   const place = async () => {
     setBusy(true);
     try {
@@ -516,6 +585,7 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
         if (!mark) throw new Error("Select or add a signature first");
         const coords = pos === "saved" ? { x: mark.posX, y: mark.posY } : POSITIONS[pos];
         const size = pos === "saved" ? { width: mark.width, height: mark.height } : { width: 0.24, height: 0.09 };
+        if (!overlapOk(pages, coords.x, coords.y, size.width, size.height)) { setBusy(false); return; }
         for (const pg of pages) {
           await api.post(`/documents/${docId}/placements`, { kind: "SIGNATURE", savedMarkId: mark.id, page: pg, ...size, ...coords });
         }
@@ -524,6 +594,7 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
         // One company stamp per DOCUMENT — placed once, on the selected page.
         if (docHasStamp) throw new Error("This document already has a company stamp (one stamp per document).");
         const coords = pos === "saved" ? POSITIONS["bottom-right"] : POSITIONS[pos];
+        if (!overlapOk([page], coords.x, coords.y, 0.26, 0.12)) { setBusy(false); return; }
         await api.post(`/documents/${docId}/placements`, { kind: "STAMP", stampId, page, width: 0.26, height: 0.12, ...coords });
         onDone("Stamp applied");
         return;
@@ -553,7 +624,9 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
               {marks.map((m) => (
                 <button key={m.id} type="button" onClick={() => setSelMark(m.id)}
                   style={{ width: 110, padding: 6, border: `2px solid ${selMark === m.id ? "var(--primary)" : "var(--border)"}`, borderRadius: 8, background: "#fff", cursor: "pointer" }}>
-                  {markUrls[m.id] ? <img src={markUrls[m.id]} alt={m.label} style={{ width: "100%", height: 40, objectFit: "contain" }} /> : <div style={{ height: 40 }} className="muted">…</div>}
+                  {markUrls[m.id]
+                    ? <img src={markUrls[m.id]} alt={m.label} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} style={{ width: "100%", height: 40, objectFit: "contain", background: "#fff" }} />
+                    : <div style={{ height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }} className="muted">✍</div>}
                   <div style={{ fontSize: 11, marginTop: 4 }} className="muted">{m.label}</div>
                   {m.approvalTypeId && <div style={{ fontSize: 10 }}><span className="badge" style={{ background: "#1565c0", fontSize: 9 }}>{types.find((t) => t.id === m.approvalTypeId)?.name || "type"}</span></div>}
                 </button>

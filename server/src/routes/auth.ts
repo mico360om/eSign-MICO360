@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Router } from "express";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
@@ -8,6 +9,7 @@ import { audit } from "../lib/audit";
 import { authenticate } from "../middleware/auth";
 import { parsePermissions } from "../constants";
 import { getSettings, num, validatePassword } from "../lib/settings";
+import { sendEmail } from "../lib/email";
 
 const router = Router();
 
@@ -83,6 +85,64 @@ router.post(
         permissions: parsePermissions(user.role?.permissions),
       },
     });
+  }),
+);
+
+// ── Email OTP login ──────────────────────────────────────────────────────
+// One-time codes are kept in-memory (single-instance desktop/server). Requires
+// SMTP to be configured (Settings → Email) so the code can actually be sent.
+const otpStore = new Map<string, { code: string; expires: number; attempts: number }>();
+
+const userResponse = (user: any) => ({
+  id: user.id,
+  fullName: user.fullName,
+  email: user.email,
+  role: user.role?.name ?? null,
+  permissions: parsePermissions(user.role?.permissions),
+});
+
+router.post(
+  "/request-otp",
+  loginLimiter,
+  asyncHandler(async (req, res) => {
+    const { email } = z.object({ email: z.string().email() }).parse(req.body);
+    const key = email.toLowerCase();
+    const user = await prisma.user.findFirst({ where: { email: key } });
+    // Only send when the email is registered & active — but always respond the
+    // same way so the endpoint can't be used to enumerate accounts.
+    if (user && user.isActive) {
+      const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+      otpStore.set(key, { code, expires: Date.now() + 10 * 60_000, attempts: 0 });
+      await sendEmail(
+        user.email,
+        "Your eSign MICO360 login code",
+        `<p>Your one-time login code is <b style="font-size:22px;letter-spacing:2px">${code}</b>.</p><p>It expires in 10 minutes. If you didn't request this, you can ignore this email.</p>`,
+      );
+      await audit({ actorId: user.id, action: "OTP_REQUESTED", entity: "User", entityId: user.id });
+    }
+    ok(res, { sent: true, message: "If that email is registered, a login code has been sent." });
+  }),
+);
+
+router.post(
+  "/verify-otp",
+  loginLimiter,
+  asyncHandler(async (req, res) => {
+    const { email, otp } = z.object({ email: z.string().email(), otp: z.string().min(4).max(8) }).parse(req.body);
+    const key = email.toLowerCase();
+    const rec = otpStore.get(key);
+    if (!rec || rec.expires < Date.now()) { otpStore.delete(key); throw unauthorized("Code expired or not requested. Please request a new code."); }
+    rec.attempts += 1;
+    if (rec.attempts > 5) { otpStore.delete(key); throw unauthorized("Too many attempts. Please request a new code."); }
+    if (rec.code !== otp.trim()) throw unauthorized("Incorrect code. Please try again.");
+    otpStore.delete(key);
+
+    const user = await prisma.user.findFirst({ where: { email: key }, include: { role: true } });
+    if (!user || !user.isActive) throw unauthorized("Account is not available.");
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null } });
+    await audit({ actorId: user.id, action: "LOGIN_OTP", entity: "User", entityId: user.id });
+    const token = signToken({ sub: user.id, email: user.email, role: user.role?.name });
+    ok(res, { token, user: userResponse(user) });
   }),
 );
 
