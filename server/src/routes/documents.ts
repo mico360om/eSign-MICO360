@@ -243,7 +243,7 @@ router.post(
     // Profile access rule: user must belong to the target profile (admins bypass).
     if (!hasPermission(req, "MANAGE_PROFILES")) {
       const profileIds = await userProfileIds(req.user!.id);
-      if (!profileIds.includes(body.profileId)) throw forbidden("You are not assigned to this profile");
+      if (!profileIds.includes(body.profileId)) throw forbidden("You are not assigned to this company");
     }
 
     const originalAbs = req.file.path;
@@ -273,6 +273,56 @@ router.post(
     await docEvent(doc.id, "CONVERTED", req.user!.id, "Generated PDF copy");
     await audit({ actorId: req.user!.id, action: "UPLOAD_DOCUMENT", entity: "Document", entityId: doc.id });
     ok(res, doc);
+  }),
+);
+
+// Edit document details BEFORE it is submitted for approval. Once a document is
+// in an approval workflow (or completed/cancelled/rejected) its details lock.
+const editSchema = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  profileId: z.string().optional(),
+  priority: z.enum(["NORMAL", "URGENT", "CRITICAL"]).optional(),
+  dueDate: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  confidential: z.boolean().optional(),
+});
+
+router.patch(
+  "/:id",
+  requirePermission("UPLOAD"),
+  asyncHandler(async (req, res) => {
+    const body = editSchema.parse(req.body);
+    const doc = await prisma.document.findUnique({ where: { id: req.params.id } });
+    if (!doc) throw notFound("Document not found");
+    const isAdmin = hasPermission(req, "MANAGE_PROFILES");
+    if (doc.uploadedById !== req.user!.id && !isAdmin) throw forbidden("Only the requester can edit this document");
+
+    const editable: string[] = [DocumentStatus.DRAFT, DocumentStatus.UPLOADED, DocumentStatus.PDF_CONVERTED];
+    if (!editable.includes(doc.status)) throw badRequest("This document has been submitted for approval and can no longer be edited");
+
+    // If moving to a different company/profile, enforce membership (admins bypass).
+    if (body.profileId && body.profileId !== doc.profileId && !isAdmin) {
+      const profileIds = await userProfileIds(req.user!.id);
+      if (!profileIds.includes(body.profileId)) throw forbidden("You are not assigned to this company");
+    }
+
+    const updated = await prisma.document.update({
+      where: { id: doc.id },
+      data: {
+        ...(body.title !== undefined ? { title: body.title } : {}),
+        ...(body.description !== undefined ? { description: body.description } : {}),
+        ...(body.profileId !== undefined ? { profileId: body.profileId } : {}),
+        ...(body.priority !== undefined ? { priority: body.priority } : {}),
+        ...(body.dueDate !== undefined ? { dueDate: body.dueDate ? new Date(body.dueDate) : null } : {}),
+        ...(body.notes !== undefined ? { notes: body.notes } : {}),
+        ...(body.confidential !== undefined ? { confidential: body.confidential } : {}),
+      },
+      include: docInclude,
+    });
+    await docEvent(doc.id, "UPDATED", req.user!.id, "Edited document details before submission");
+    await audit({ actorId: req.user!.id, action: "UPDATE_DOCUMENT", entity: "Document", entityId: doc.id });
+    ok(res, updated);
   }),
 );
 
@@ -307,7 +357,7 @@ router.post(
     if (parsed.templateId) {
       const t = await prisma.template.findUnique({ where: { id: parsed.templateId } });
       if (!t) throw notFound("Template not found");
-      if (t.profileId !== doc.profileId) throw forbidden("Template is for a different profile");
+      if (t.profileId !== doc.profileId) throw forbidden("Template is for a different company");
       body.signatoryIds = parsed.signatoryIds ?? (JSON.parse(t.signatoryIds || "[]") as string[]);
       body.signatureGroupId = parsed.signatureGroupId ?? (t.signatureGroupId || undefined);
       body.approvalMode = parsed.approvalMode ?? (t.approvalMode as any);
@@ -326,14 +376,14 @@ router.post(
       });
       if (!group) throw notFound("Signature group not found");
       // Signature group rule: group must belong to the document's profile.
-      if (group.profileId !== doc.profileId) throw forbidden("Signature group is not linked to this profile");
+      if (group.profileId !== doc.profileId) throw forbidden("Signature group is not linked to this company");
       approvalMode = group.approvalMode as ApprovalMode;
       signatories = group.members.map((m) => ({ userId: m.userId, order: m.order }));
     } else if (body.signatoryIds?.length) {
       // Signatory selection rule: requester & signatory must share a profile.
       for (const sid of body.signatoryIds) {
         if (!(await shareProfile(req.user!.id, sid))) {
-          throw forbidden("A selected signatory is not in your profile");
+          throw forbidden("A selected signatory is not in your company");
         }
       }
       signatories = body.signatoryIds.map((userId, i) => ({ userId, order: i + 1 }));
@@ -545,7 +595,7 @@ router.post(
     const doc = await prisma.document.findUnique({ where: { id: req.params.id } });
     if (!doc) throw notFound("Document not found");
     const profileIds = await userProfileIds(req.user!.id);
-    if (!profileIds.includes(doc.profileId)) throw forbidden("You are not assigned to this profile");
+    if (!profileIds.includes(doc.profileId)) throw forbidden("You are not assigned to this company");
     const newDoc = await prisma.document.create({
       data: {
         title: `${doc.title} (copy)`,

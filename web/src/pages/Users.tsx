@@ -64,7 +64,7 @@ export default function Users() {
           ) },
           { key: "email", header: "Email", render: (u: any) => <span className="cell-truncate" style={{ display: "inline-block", fontSize: 13 }}>{u.email}</span> },
           { key: "role", header: "Role", value: (u: any) => u.role?.name ?? "", render: (u: any) => u.role?.name || <span className="muted">—</span> },
-          { key: "profiles", header: "Profiles", value: (u: any) => u._count?.profileLinks ?? 0, render: (u: any) => u._count?.profileLinks ?? 0 },
+          { key: "profiles", header: "Companies", value: (u: any) => u._count?.profileLinks ?? 0, render: (u: any) => u._count?.profileLinks ?? 0 },
           { key: "lastLoginAt", header: "Last Login", value: (u: any) => u.lastLoginAt ?? "", render: (u: any) => u.lastLoginAt ? <span className="muted" style={{ fontSize: 12 }}>{new Date(u.lastLoginAt).toLocaleDateString()}</span> : <span className="muted">Never</span> },
           { key: "createdAt", header: "Created", value: (u: any) => u.createdAt, render: (u: any) => <span className="muted" style={{ fontSize: 12 }}>{new Date(u.createdAt).toLocaleDateString()}</span> },
           { key: "isActive", header: "Status", value: (u: any) => (u.isActive ? 1 : 0), render: (u: any) => (
@@ -163,7 +163,7 @@ function UserModal({ user, roles, profiles, onClose, onDone, onError }: any) {
           {roles.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
       </div>
-      <div className="field"><label>Profiles</label>
+      <div className="field"><label>Companies</label>
         <div className="checklist">
           {profiles.map((p: any) => (
             <label key={p.id}><input type="checkbox" checked={profileIds.includes(p.id)} onChange={(e) => setProfileIds(e.target.checked ? [...profileIds, p.id] : profileIds.filter((x) => x !== p.id))} /> {p.name}</label>

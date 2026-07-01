@@ -41,7 +41,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const body = upsert.parse(req.body);
     const mine = await userProfileIds(req.user!.id);
-    if (!mine.includes(body.profileId)) throw forbidden("You are not assigned to this profile");
+    if (!mine.includes(body.profileId)) throw forbidden("You are not assigned to this company");
     const t = await prisma.template.create({
       data: {
         name: body.name,

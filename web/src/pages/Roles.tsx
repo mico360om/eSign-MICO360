@@ -19,7 +19,7 @@ const PERM_LABELS: Record<string, string> = {
   DOWNLOAD: "Download documents",
   USE_STAMP: "Apply company stamp",
   MANAGE_USERS: "Manage users",
-  MANAGE_PROFILES: "Manage profiles",
+  MANAGE_PROFILES: "Manage companies",
   MANAGE_ROLES: "Manage roles",
   MANAGE_SIGNATURE_GROUPS: "Manage signature groups",
   MANAGE_STAMPS: "Manage stamps",

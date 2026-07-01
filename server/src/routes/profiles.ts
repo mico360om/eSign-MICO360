@@ -31,7 +31,7 @@ router.get(
         signatureGroups: { select: { id: true, name: true, approvalMode: true } },
       },
     });
-    if (!profile) throw notFound("Profile not found");
+    if (!profile) throw notFound("Company not found");
     ok(res, profile);
   }),
 );
