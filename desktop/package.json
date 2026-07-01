@@ -1,6 +1,6 @@
 {
   "name": "@esign-mico360/desktop",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "eSign MICO360 Windows desktop app (self-contained Electron + embedded API + SQLite)",
   "main": "main.js",
