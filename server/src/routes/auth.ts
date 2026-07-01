@@ -26,13 +26,17 @@ const loginLimiter = rateLimit({
 const loginSchema = z.object({
   email: z.string().min(1),
   password: z.string().min(1),
+  rememberMe: z.boolean().optional(),
 });
+
+// "Remember me" keeps the session valid for up to 30 days of inactivity.
+const REMEMBER_ME_EXPIRY = "30d";
 
 router.post(
   "/login",
   loginLimiter,
   asyncHandler(async (req, res) => {
-    const { email, password } = loginSchema.parse(req.body);
+    const { email, password, rememberMe } = loginSchema.parse(req.body);
     const settings = await getSettings();
     const maxFail = num(settings["security.maxFailedLogins"], 5);
     const lockMin = num(settings["security.lockoutMinutes"], 15);
@@ -74,9 +78,10 @@ router.post(
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null } });
     await audit({ actorId: user.id, action: "LOGIN", entity: "User", entityId: user.id, ip: req.ip });
 
-    const token = signToken({ sub: user.id, email: user.email, role: user.role?.name });
+    const token = signToken({ sub: user.id, email: user.email, role: user.role?.name }, rememberMe ? REMEMBER_ME_EXPIRY : undefined);
     ok(res, {
       token,
+      rememberMe: !!rememberMe,
       user: {
         id: user.id,
         fullName: user.fullName,
