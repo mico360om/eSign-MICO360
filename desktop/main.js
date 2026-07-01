@@ -1,4 +1,5 @@
 const { app, BrowserWindow, shell, dialog, Menu } = require("electron");
+const os = require("os");
 const path = require("path");
 const fs = require("fs");
 const net = require("net");
@@ -49,6 +50,25 @@ function freePort(start) {
 
 let mainWindow;
 
+// Render arbitrary HTML to a PDF Buffer using an offscreen window. Used by the
+// embedded server to convert Word documents without LibreOffice.
+async function htmlToPdf(html) {
+  const tmp = path.join(os.tmpdir(), `esign-conv-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
+  fs.writeFileSync(tmp, html, "utf8");
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: { offscreen: true, sandbox: true, javascript: false },
+  });
+  try {
+    await win.loadFile(tmp);
+    const data = await win.webContents.printToPDF({ printBackground: true });
+    return data; // Buffer
+  } finally {
+    try { win.destroy(); } catch {}
+    try { fs.unlinkSync(tmp); } catch {}
+  }
+}
+
 async function start() {
   const userData = app.getPath("userData");
   const port = await freePort(4555);
@@ -73,6 +93,7 @@ async function start() {
     stampImagePath: res("stamp.png"),
     port,
     jwtSecret,
+    htmlToPdf, // enables Word→PDF conversion without LibreOffice
   });
 
   mainWindow = new BrowserWindow({

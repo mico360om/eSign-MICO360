@@ -152,7 +152,7 @@ export default function Documents() {
         <UploadModal
           profiles={can("MANAGE_PROFILES") ? allProfiles : me!.profiles.filter((p: any) => p.isActive)}
           onClose={() => setShowUpload(false)}
-          onDone={() => { setShowUpload(false); toast("Document uploaded & converted to PDF"); load(); }}
+          onDone={(doc: any) => { setShowUpload(false); toast("Document uploaded & converted to PDF"); if (doc?.id) nav(`/documents/${doc.id}`); else load(); }}
           onError={(m) => toast(m, true)}
         />
       )}
@@ -185,8 +185,8 @@ function UploadModal({ profiles, onClose, onDone, onError }: { profiles: any[]; 
       if (dueDate) fd.set("dueDate", dueDate);
       if (notes) fd.set("notes", notes);
       fd.set("confidential", String(confidential));
-      await api.post("/documents/upload", fd);
-      onDone();
+      const created = await unwrap(api.post("/documents/upload", fd));
+      onDone(created);
     } catch (e) { onError(apiError(e)); } finally { setBusy(false); }
   };
 

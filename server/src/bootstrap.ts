@@ -17,6 +17,9 @@ export interface EmbeddedOptions {
   stampImagePath?: string; // optional image to seed as the default company stamp
   port: number;
   jwtSecret: string;
+  // Optional HTML→PDF renderer (Electron printToPDF) so Word docs convert
+  // with real layout in the packaged desktop app — no LibreOffice needed.
+  htmlToPdf?: (html: string) => Promise<Buffer | Uint8Array>;
 }
 
 export async function startEmbedded(opts: EmbeddedOptions): Promise<{ port: number }> {
@@ -35,6 +38,11 @@ export async function startEmbedded(opts: EmbeddedOptions): Promise<{ port: numb
   const { prisma } = require("./lib/prisma");
   const { ensureStorage } = require("./lib/storage");
   ensureStorage();
+
+  // Register the desktop HTML→PDF renderer for Word-document conversion.
+  if (opts.htmlToPdf) {
+    try { require("./lib/pdf").setHtmlToPdf(opts.htmlToPdf); } catch { /* non-fatal */ }
+  }
 
   await runMigrations(prisma, opts.migrationsDir);
   await ensureReferenceData(prisma); // idempotent — runs on every startup (incl. upgrades)
