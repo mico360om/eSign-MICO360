@@ -58,7 +58,7 @@ export default function OfficePrompt() {
       ? <>🛠 A Terminal window is installing <strong>LibreOffice</strong> via Homebrew. When it finishes, restart the app and re-upload your document.</>
       : <>🛠 Approve the Windows prompt — a PowerShell window is installing <strong>LibreOffice</strong>. When it finishes, restart the app and re-upload your document.</>,
     browser: <>🌐 Opened the LibreOffice download page. Install it, then restart the app and re-upload your document.</>,
-    error: <>⚠ Couldn't start the installer automatically. Use the manual command below, or download from <a href="https://www.libreoffice.org/download/download/" target="_blank" rel="noreferrer" style={{ color: "#fff", textDecoration: "underline" }}>libreoffice.org</a>.</>,
+    error: <>⚠ Couldn't start the installer automatically. Use the manual command below, or download from <a href="https://www.libreoffice.org/download" target="_blank" rel="noreferrer" style={{ color: "#fff", textDecoration: "underline" }}>libreoffice.org</a>.</>,
   }[phase];
 
   // Show the copy-paste command whenever the user still needs to install it.
@@ -76,7 +76,7 @@ export default function OfficePrompt() {
           <span className="office-banner-manual-label">{manual.label}</span>
           <code className="office-banner-code">{manual.cmd}</code>
           <button className="btn btn-sm" onClick={copyCmd}>{copied ? "Copied ✓" : "Copy"}</button>
-          <a className="office-banner-manual-link" href="https://www.libreoffice.org/download/download/" target="_blank" rel="noreferrer">or download manually</a>
+          <a className="office-banner-manual-link" href="https://www.libreoffice.org/download" target="_blank" rel="noreferrer">or download manually</a>
         </div>
       )}
     </div>
