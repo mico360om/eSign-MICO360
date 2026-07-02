@@ -28,11 +28,25 @@ function sofficePath() {
   if (process.env.SOFFICE_PATH && fs.existsSync(process.env.SOFFICE_PATH)) return process.env.SOFFICE_PATH;
   const candidates =
     process.platform === "win32"
-      ? ["C:/Program Files/LibreOffice/program/soffice.exe", "C:/Program Files (x86)/LibreOffice/program/soffice.exe"]
+      ? [
+          path.join(process.env["ProgramFiles"] || "C:/Program Files", "LibreOffice/program/soffice.exe"),
+          path.join(process.env["ProgramFiles(x86)"] || "C:/Program Files (x86)", "LibreOffice/program/soffice.exe"),
+          path.join(process.env["LOCALAPPDATA"] || "", "Programs/LibreOffice/program/soffice.exe"), // per-user winget install
+          "C:/Program Files/LibreOffice/program/soffice.exe",
+          "C:/Program Files (x86)/LibreOffice/program/soffice.exe",
+        ]
       : process.platform === "darwin"
-        ? ["/Applications/LibreOffice.app/Contents/MacOS/soffice"]
+        ? ["/Applications/LibreOffice.app/Contents/MacOS/soffice", path.join(os.homedir(), "Applications/LibreOffice.app/Contents/MacOS/soffice")]
         : ["/usr/bin/soffice", "/usr/local/bin/soffice", "/opt/libreoffice/program/soffice", "/snap/bin/libreoffice"];
-  for (const c of candidates) if (fs.existsSync(c)) return c;
+  for (const c of candidates) if (c && fs.existsSync(c)) return c;
+  // Last resort: look soffice up on PATH (covers custom install locations).
+  try {
+    const { execFileSync } = require("child_process");
+    const finder = process.platform === "win32" ? "where" : "which";
+    const bin = process.platform === "win32" ? "soffice.exe" : "soffice";
+    const found = execFileSync(finder, [bin], { stdio: ["ignore", "pipe", "ignore"], timeout: 4000 }).toString().trim().split(/\r?\n/)[0];
+    if (found && fs.existsSync(found)) return found;
+  } catch { /* not on PATH */ }
   return null;
 }
 
