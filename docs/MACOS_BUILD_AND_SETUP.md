@@ -18,7 +18,7 @@ settings, database logic and business rules.
 - macOS 11 (Big Sur) or later — Apple Silicon (arm64) or Intel (x64)
 - [Node.js 18 LTS or newer](https://nodejs.org) and npm
 - Xcode Command Line Tools: `xcode-select --install`
-- (Optional, for true Office→PDF conversion) [LibreOffice](https://www.libreoffice.org/download/download/)
+- (Optional, for true Office→PDF conversion) [LibreOffice](https://www.libreoffice.org/download)
 - (Optional, for notarized distribution) an Apple Developer ID certificate
 
 ---

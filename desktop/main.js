@@ -51,7 +51,7 @@ function sofficePath() {
 }
 
 function installLibreOffice() {
-  const downloadUrl = "https://www.libreoffice.org/download/download/";
+  const downloadUrl = "https://www.libreoffice.org/download";
   // Already installed? Nothing to do (all platforms).
   if (sofficePath()) return { ok: true, alreadyInstalled: true };
 
