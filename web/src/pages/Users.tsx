@@ -107,7 +107,7 @@ function ResetPasswordModal({ user, onClose, onDone, onError }: any) {
 
   return (
     <Modal title={`Reset password — ${user.fullName}`} onClose={onClose}
-      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={save}>Reset Password</button></>}>
+      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={save}>{busy ? "Resetting…" : "Reset Password"}</button></>}>
       <div className="field"><label>New password</label><input type="password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} /></div>
       <div className="field"><label>Confirm new password</label><input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} /></div>
     </Modal>
@@ -148,8 +148,8 @@ function UserModal({ user, roles, profiles, onClose, onDone, onError }: any) {
 
   return (
     <Modal title={isNew ? "Add User" : "Edit User"} onClose={onClose}
-      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={save}>Save</button></>}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button></>}>
+      <div className="form-grid">
         <div className="field"><label>Full name</label><input autoFocus value={f.fullName} onChange={(e) => setF({ ...f, fullName: e.target.value })} onKeyDown={(e) => e.key === "Enter" && save()} /></div>
         <div className="field"><label>Email</label><input value={f.email} disabled={!isNew} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
         {isNew && <div className="field"><label>Password</label><input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></div>}

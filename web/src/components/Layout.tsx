@@ -4,6 +4,7 @@ import { useAuth, markActivity } from "../lib/auth";
 import { api, unwrap } from "../lib/api";
 import UpdateNotifier from "./UpdateNotifier";
 import OfficePrompt from "./OfficePrompt";
+import { APP_INFO } from "../pages/legal/content";
 
 interface NavItem { to: string; label: string; ico: string; perm?: string }
 const NAV: NavItem[] = [
@@ -36,6 +37,8 @@ const DOC_STATUS_LINKS: { label: string; status: string }[] = [
 // Help & Legal — available to every authenticated user (no permission gate).
 const HELP_NAV: NavItem[] = [
   { to: "/account", label: "My Account", ico: "👤" },
+  { to: "/notifications", label: "Notifications", ico: "🔔" },
+  { to: "/updates", label: "Software Update", ico: "🔄" },
   { to: "/legal/about", label: "About Us", ico: "ℹ" },
   { to: "/legal/privacy", label: "Privacy Policy", ico: "🔒" },
   { to: "/legal/terms", label: "Terms & Conditions", ico: "📜" },
@@ -122,7 +125,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div style={{ padding: "12px 16px", fontSize: 11, color: "#9a9896", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-          eSign MICO360 · v1.0
+          {APP_INFO.appName} · v{APP_INFO.appVersion}
         </div>
       </aside>
 

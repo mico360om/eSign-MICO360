@@ -19,6 +19,7 @@ import ApprovalTypes from "./pages/ApprovalTypes";
 import Legal from "./pages/Legal";
 import Account from "./pages/Account";
 import ErrorLog from "./pages/ErrorLog";
+import Updates from "./pages/Updates";
 
 export default function App() {
   const { me, loading } = useAuth();
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/account" element={<Account />} />
         <Route path="/error-log" element={<ErrorLog />} />
+        <Route path="/updates" element={<Updates />} />
         <Route path="/legal/terms" element={<Legal docKey="terms" />} />
         <Route path="/legal/privacy" element={<Legal docKey="privacy" />} />
         <Route path="/legal/about" element={<Legal docKey="about" />} />

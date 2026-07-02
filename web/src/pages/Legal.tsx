@@ -1,6 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { APP_INFO, LEGAL_DOCS, LegalDoc } from "./legal/content";
-import UpdatePanel from "../components/UpdatePanel";
 
 function Paragraph({ text }: { text: string }) {
   if (text.startsWith("• ")) {
@@ -100,7 +99,11 @@ export default function Legal({ docKey }: { docKey?: LegalDoc["key"] }) {
           )}
 
           {doc.key === "about" && <AboutMeta />}
-          {doc.key === "about" && <div className="no-print"><UpdatePanel /></div>}
+          {doc.key === "about" && (
+            <div className="no-print" style={{ marginBottom: 22 }}>
+              <button className="btn btn-primary btn-sm" onClick={() => nav("/updates")}>🔄 Check for software updates</button>
+            </div>
+          )}
 
           {doc.sections.map((s, i) => <Section key={i} heading={s.h} paras={s.p} />)}
 
