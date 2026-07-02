@@ -43,14 +43,17 @@ npm run -w web build
 npm run -w desktop dist:mac
 ```
 
-The signed/zipped artifacts appear in `desktop/release/`:
+By default this now builds a **universal** app — a single download that runs
+natively on both Intel and Apple Silicon. Artifacts appear in `desktop/release/`:
 
 ```
-eSign MICO360-1.0.0-arm64.dmg     # Apple Silicon installer
-eSign MICO360-1.0.0-x64.dmg       # Intel installer (if built on/for x64)
-eSign MICO360-1.0.0-arm64.zip     # used by the auto-updater
-latest-mac.yml                    # auto-update manifest
+eSign-MICO360-1.0.9-universal.dmg   # installer (Intel + Apple Silicon)
+eSign-MICO360-1.0.9-universal.zip   # used by the auto-updater
+latest-mac.yml                      # auto-update manifest
 ```
+
+> The universal build bundles **both** macOS Prisma engines (darwin + darwin-arm64);
+> `desktop/main.js` selects the one matching the machine at runtime.
 
 ### One-liner
 
@@ -60,11 +63,18 @@ git clone https://github.com/mico360om/eSign-MICO360.git && cd eSign-MICO360 && 
 
 ### Build for a specific architecture
 
+`dist:mac` builds universal by default. To build a single, smaller arch instead:
+
 ```bash
 npm run -w desktop dist:mac -- --arm64      # Apple Silicon only
 npm run -w desktop dist:mac -- --x64        # Intel only
-npm run -w desktop dist:mac -- --universal  # universal binary
 ```
+
+### CI (recommended)
+
+Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`, which builds and
+publishes **both** the Windows installer and the **universal** macOS app to the
+GitHub Release automatically — no Mac hardware needed on your side.
 
 ---
 
@@ -84,8 +94,28 @@ Default admin login (from the seed): `admin@mico360.com` / `Admin@123`
 
 ## 4. Code signing & notarization (production distribution)
 
-Unsigned builds work for internal use but show a Gatekeeper warning. For public
-distribution, sign and notarize:
+> ⚠️ **Important — auto-update on macOS requires signing.** The unsigned universal
+> build **runs** everywhere (via the right-click → Open bypass in §3) and is fine
+> for internal use, but macOS (Squirrel.Mac) will **not apply auto-updates to an
+> unsigned app**. To give Mac users the same silent auto-update Windows gets, the
+> app must be signed + notarized with an **Apple Developer ID** ($99/yr). Windows
+> auto-update works unsigned.
+
+**Enable signing in CI (recommended).** The release workflow is already wired for
+it — you only need to add the Apple credentials as GitHub repo secrets and flip
+one flag:
+
+1. In the repo: **Settings → Secrets and variables → Actions**, add:
+   - `MAC_CSC_LINK` — base64 of your Developer ID Application `.p12`
+     (`base64 -i DeveloperID.p12 | pbcopy`)
+   - `MAC_CSC_KEY_PASSWORD` — the `.p12` password
+   - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`
+2. In `desktop/package.json` → `build.mac`, set `"hardenedRuntime": true` and
+   `"notarize": true`.
+3. Cut a release tag as usual — CI now produces a signed + notarized, auto-updatable
+   universal `.dmg`/`.zip`.
+
+**Local signed build** (on a Mac with the cert in your keychain):
 
 ```bash
 export CSC_LINK="/path/to/DeveloperID.p12"
@@ -95,10 +125,6 @@ export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 export APPLE_TEAM_ID="YOURTEAMID"
 npm run -w desktop dist:mac
 ```
-
-Then set `"hardenedRuntime": true` in `desktop/package.json` → `build.mac`
-and add an `entitlements` plist. (Left off by default so unsigned internal
-builds run without extra setup.)
 
 ---
 
@@ -123,3 +149,9 @@ when LibreOffice is installed. The app auto-detects
 `/Applications/LibreOffice.app/Contents/MacOS/soffice`, or set `SOFFICE_PATH`.
 Without it, an honest cover-page PDF is generated and the original remains
 downloadable. PDF/PNG/JPG/JPEG/TXT always convert natively.
+
+**One-click install (parity with Windows).** When LibreOffice is missing, the
+in-app banner's *Install* button runs a one-click install: on Windows via
+`winget`, and on macOS via **Homebrew** (`brew install --cask libreoffice`) in a
+Terminal window. If Homebrew isn't present on the Mac, it opens the LibreOffice
+download page instead.

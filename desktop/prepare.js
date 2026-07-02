@@ -83,6 +83,27 @@ for (const dep of ["@prisma/client", ".prisma"]) {
   fs.cpSync(src, path.join(runtime, dep), { recursive: true });
 }
 
+// The schema generates engines for every desktop target (windows + both mac
+// arches). Keep only the engine(s) for the platform we're packaging on, so a
+// Windows installer doesn't ship macOS engines (and vice-versa). On macOS we
+// keep BOTH darwin + darwin-arm64 so a single universal build runs on Intel and
+// Apple Silicon; main.js picks the right one at runtime.
+try {
+  const clientDir = path.join(runtime, ".prisma", "client");
+  const keepToken = process.platform === "darwin" ? "darwin" : process.platform === "win32" ? "windows" : null;
+  if (keepToken && exists(clientDir)) {
+    for (const f of fs.readdirSync(clientDir)) {
+      const isEngine = /query_engine/i.test(f) && /\.node$/i.test(f);
+      if (isEngine && !f.includes(keepToken)) {
+        fs.rmSync(path.join(clientDir, f), { force: true });
+        console.log(`[prepare] pruned non-${keepToken} engine ${f}`);
+      }
+    }
+  }
+} catch (e) {
+  console.warn("[prepare] engine prune skipped:", e.message);
+}
+
 // 4) Web SPA, ALL migrations, demo stamp
 console.log("[prepare] copying web build, migrations, assets");
 fs.cpSync(path.join(ROOT, "web/dist"), path.join(VENDOR, "web"), { recursive: true });

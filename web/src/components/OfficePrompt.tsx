@@ -4,17 +4,18 @@ import { useEffect, useState } from "react";
 const office: any = (typeof window !== "undefined" && (window as any).mico360?.office) || null;
 
 // Banner shown (desktop) when LibreOffice isn't installed. Exact Word/Excel/
-// PowerPoint → PDF conversion needs it; the button opens an elevated PowerShell
-// that installs it via winget.
+// PowerPoint → PDF conversion needs it; the button runs a one-click install —
+// winget on Windows, Homebrew on macOS.
 export default function OfficePrompt() {
   const [needed, setNeeded] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [platform, setPlatform] = useState("");
   const [phase, setPhase] = useState<"prompt" | "installing" | "browser" | "error">("prompt");
 
   useEffect(() => {
     if (!office) return;
     // Only prompt when LibreOffice is genuinely not installed.
-    office.status().then((s: any) => setNeeded(s && s.supported && s.available === false)).catch(() => {});
+    office.status().then((s: any) => { setNeeded(s && s.supported && s.available === false); if (s?.platform) setPlatform(s.platform); }).catch(() => {});
   }, []);
 
   if (!office || !needed || dismissed) return null;
@@ -31,7 +32,9 @@ export default function OfficePrompt() {
 
   const msg = {
     prompt: <>📄 For <strong>exact Word/Excel/PowerPoint</strong> formatting, install <strong>LibreOffice</strong> (free, one-time). Without it, Office files use simplified formatting.</>,
-    installing: <>🛠 Approve the Windows prompt — a PowerShell window is installing <strong>LibreOffice</strong>. When it finishes, restart the app and re-upload your document.</>,
+    installing: platform === "darwin"
+      ? <>🛠 A Terminal window is installing <strong>LibreOffice</strong> via Homebrew. When it finishes, restart the app and re-upload your document.</>
+      : <>🛠 Approve the Windows prompt — a PowerShell window is installing <strong>LibreOffice</strong>. When it finishes, restart the app and re-upload your document.</>,
     browser: <>🌐 Opened the LibreOffice download page. Install it, then restart the app and re-upload your document.</>,
     error: <>⚠ Couldn't start the installer automatically. Download LibreOffice from <a href="https://www.libreoffice.org/download/download/" target="_blank" rel="noreferrer" style={{ color: "#fff", textDecoration: "underline" }}>libreoffice.org</a>, then restart the app.</>,
   }[phase];

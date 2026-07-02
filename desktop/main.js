@@ -38,12 +38,45 @@ function sofficePath() {
 
 function installLibreOffice() {
   const downloadUrl = "https://www.libreoffice.org/download/download/";
+  // Already installed? Nothing to do (all platforms).
+  if (sofficePath()) return { ok: true, alreadyInstalled: true };
+
+  // macOS: one-click via Homebrew cask when Homebrew is present — mirrors the
+  // Windows winget flow — opening a Terminal window so the user sees progress.
+  // Without Homebrew, fall back to the download page.
+  if (process.platform === "darwin") {
+    const brew = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"].find((p) => fs.existsSync(p));
+    if (!brew) { shell.openExternal(downloadUrl); return { ok: true, opened: "browser" }; }
+    try {
+      const sh = [
+        "#!/bin/bash",
+        "echo 'Installing LibreOffice for eSign MICO360 (exact Word/Excel/PowerPoint conversion)...'",
+        "echo",
+        `'${brew}' install --cask libreoffice`,
+        "echo",
+        "echo 'When installation finishes, restart eSign MICO360 and re-upload your document.'",
+        "echo 'You can close this window.'",
+      ].join("\n");
+      const tmp = path.join(os.tmpdir(), "esign-install-libreoffice.command");
+      fs.writeFileSync(tmp, sh, "utf8");
+      fs.chmodSync(tmp, 0o755);
+      // `open` a .command file launches it in Terminal and runs it.
+      const child = spawn("open", [tmp], { detached: true, stdio: "ignore" });
+      child.on("error", (e) => logCrash("office-install", e));
+      child.unref();
+      return { ok: true };
+    } catch (e) {
+      logCrash("office-install", e);
+      shell.openExternal(downloadUrl);
+      return { ok: false, opened: "browser", error: String(e && e.message ? e.message : e) };
+    }
+  }
+
+  // Linux and other: open the download page.
   if (process.platform !== "win32") {
     shell.openExternal(downloadUrl);
     return { ok: true, opened: "browser" };
   }
-  // Already installed? Nothing to do.
-  if (sofficePath()) return { ok: true, alreadyInstalled: true };
 
   // Use the absolute path to powershell.exe — the packaged app may not have it
   // on PATH, which would make a bare spawn("powershell.exe") fail silently.
@@ -107,10 +140,24 @@ if (fs.existsSync(prismaClientDir)) {
   if (engine) process.env.PRISMA_QUERY_ENGINE_LIBRARY = engine;
 }
 
+// Pick the Prisma query engine matching THIS machine's platform + arch. A
+// universal macOS build ships both darwin (Intel) and darwin-arm64 engines, so
+// we must select the correct one rather than the first file found.
 function findEngine(dir) {
   try {
-    const f = fs.readdirSync(dir).find((n) => n.startsWith("query_engine") && (n.endsWith(".node") || n.endsWith(".dll.node") || n.endsWith(".so.node") || n.endsWith(".dylib.node")));
-    return f ? path.join(dir, f) : undefined;
+    const files = fs.readdirSync(dir).filter((n) => /query_engine/i.test(n) && /\.node$/i.test(n));
+    if (!files.length) return undefined;
+    let match;
+    if (process.platform === "darwin") {
+      match = process.arch === "arm64"
+        ? files.find((f) => f.includes("darwin-arm64"))
+        : files.find((f) => f.includes("darwin") && !f.includes("arm64"));
+    } else if (process.platform === "win32") {
+      match = files.find((f) => f.includes("windows"));
+    } else {
+      match = files.find((f) => !f.includes("darwin") && !f.includes("windows"));
+    }
+    return path.join(dir, match || files[0]);
   } catch {
     return undefined;
   }
@@ -209,8 +256,22 @@ async function start() {
   }
 }
 
+// macOS expects a real application menu — without it Cmd+Q, Cmd+C/V/X, Cmd+M
+// and Select-All stop working. Windows/Linux drive everything from the in-app
+// UI, so they keep no native menu.
+function applyMenu() {
+  if (process.platform !== "darwin") { Menu.setApplicationMenu(null); return; }
+  const template = [
+    { role: "appMenu" },
+    { role: "editMenu" },
+    { label: "View", submenu: [{ role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "togglefullscreen" }] },
+    { role: "windowMenu" },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
+  applyMenu();
   start().catch((err) => {
     dialog.showErrorBox("eSign MICO360 — startup error", String(err?.stack || err));
     app.quit();
