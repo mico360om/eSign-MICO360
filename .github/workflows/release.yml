@@ -53,6 +53,18 @@ jobs:
         run: ${{ matrix.build }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Build unsigned by default (no certs in CI). Add signing secrets later
-          # to produce signed/notarized artifacts.
+          # Build unsigned by default (no certs in CI). To ship a signed +
+          # notarized macOS app so it launches without Gatekeeper warnings AND
+          # can auto-update, add these repo secrets (Apple Developer ID) and set
+          # "notarize": true under "mac" in desktop/package.json:
+          #   MAC_CSC_LINK              base64 of your Developer ID .p12
+          #   MAC_CSC_KEY_PASSWORD      the .p12 password
+          #   APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
+          # These are scoped to the macOS runner so they never touch the Windows build.
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Unsigned unless MAC_CSC_LINK is provided (electron-builder uses CSC_LINK when set).
           CSC_IDENTITY_AUTO_DISCOVERY: "false"

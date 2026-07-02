@@ -1,6 +1,6 @@
 {
   "name": "@esign-mico360/desktop",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "description": "eSign MICO360 Windows desktop app (self-contained Electron + embedded API + SQLite)",
   "main": "main.js",
@@ -9,7 +9,7 @@
     "prepare:vendor": "node prepare.js",
     "dev": "node prepare.js && electron .",
     "dist": "node prepare.js && electron-builder --win nsis",
-    "dist:mac": "node prepare.js && electron-builder --mac dmg zip",
+    "dist:mac": "node prepare.js && electron-builder --mac dmg zip --universal",
     "pack": "node prepare.js && electron-builder --win --dir"
   },
   "build": {
