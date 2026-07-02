@@ -49,22 +49,36 @@ jobs:
       - name: Build web UI
         run: npm run -w web build
 
+      # Configure macOS signing ONLY when a certificate secret is actually set.
+      # (An EMPTY CSC_LINK makes electron-builder treat it as a bad cert path and
+      # fail with "<dir> not a file", so we must leave it unset for unsigned builds.)
+      # To ship a signed + notarized, auto-updatable macOS app: add the repo
+      # secrets below and set "notarize": true under "mac" in desktop/package.json.
+      - name: Configure macOS signing (only if a cert secret is present)
+        if: runner.os == 'macOS'
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$MAC_CSC_LINK" ]; then
+            {
+              echo "CSC_LINK=$MAC_CSC_LINK"
+              echo "CSC_KEY_PASSWORD=$MAC_CSC_KEY_PASSWORD"
+              echo "APPLE_ID=$APPLE_ID"
+              echo "APPLE_APP_SPECIFIC_PASSWORD=$APPLE_APP_SPECIFIC_PASSWORD"
+              echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+            } >> "$GITHUB_ENV"
+            echo "macOS signing configured from secrets."
+          else
+            echo "No MAC_CSC_LINK secret set — building an unsigned macOS app."
+          fi
+
       - name: Build & publish desktop app
         run: ${{ matrix.build }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Build unsigned by default (no certs in CI). To ship a signed +
-          # notarized macOS app so it launches without Gatekeeper warnings AND
-          # can auto-update, add these repo secrets (Apple Developer ID) and set
-          # "notarize": true under "mac" in desktop/package.json:
-          #   MAC_CSC_LINK              base64 of your Developer ID .p12
-          #   MAC_CSC_KEY_PASSWORD      the .p12 password
-          #   APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
-          # These are scoped to the macOS runner so they never touch the Windows build.
-          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Unsigned unless MAC_CSC_LINK is provided (electron-builder uses CSC_LINK when set).
+          # Unsigned unless the signing step above exported CSC_LINK from a secret.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
