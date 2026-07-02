@@ -159,10 +159,10 @@ export default function Dashboard() {
 
       {/* ── Personal cards ── */}
       <div style={{ marginBottom: 8 }}>
-        <div className="muted" style={{ fontSize: 12, marginBottom: 8, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>My Activity</div>
+        <div className="section-title">My Activity</div>
         <div className="stats" style={{ marginBottom: 18 }}>
           {personalCards.map((c) => (
-            <div key={c.l} className="card stat" style={{ cursor: "pointer" }} onClick={() => nav(c.link)} title={c.l}>
+            <div key={c.l} className="card stat" style={{ cursor: "pointer", borderLeft: `3px solid ${c.accent}` }} onClick={() => nav(c.link)} title={c.l}>
               <div className="n" style={{ color: c.accent }}>{c.n}</div>
               <div className="l">{c.l}</div>
             </div>
@@ -173,10 +173,10 @@ export default function Dashboard() {
       {/* ── Admin cards ── */}
       {isAdmin && (
         <div style={{ marginBottom: 22 }}>
-          <div className="muted" style={{ fontSize: 12, marginBottom: 8, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>System Overview</div>
+          <div className="section-title">System Overview</div>
           <div className="stats">
             {adminCards.map((c) => (
-              <div key={c.l} className="card stat" style={{ cursor: "pointer" }} onClick={() => nav(c.link)} title={c.l}>
+              <div key={c.l} className="card stat" style={{ cursor: "pointer", borderLeft: `3px solid ${c.accent}` }} onClick={() => nav(c.link)} title={c.l}>
                 <div className="n" style={{ color: c.accent }}>{c.n}</div>
                 <div className="l">{c.l}</div>
               </div>

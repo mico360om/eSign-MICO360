@@ -38,6 +38,7 @@ export default function DocumentDetail() {
   const [verify, setVerify] = useState<any>(null);
   const [pageCount, setPageCount] = useState(1);
   const [viewPdf, setViewPdf] = useState<{ kind: string; data: ArrayBuffer } | null>(null);
+  const [tab, setTab] = useState<"workflow" | "history" | "files">("workflow");
   const nav = useNavigate();
 
   const load = async () => {
@@ -145,12 +146,21 @@ export default function DocumentDetail() {
 
   return (
     <div>
-      <div className="between" style={{ marginBottom: 16 }}>
-        <div>
-          <h1 style={{ margin: 0 }}>{doc.title}</h1>
-          <div className="muted">{doc.profile?.name} · uploaded by {doc.uploadedBy.fullName}</div>
+      <div style={{ marginBottom: 16 }}>
+        <div className="between" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ margin: 0 }}>{doc.title}</h1>
+            <div className="muted" style={{ fontSize: 13 }}>{doc.profile?.name} · uploaded by {doc.uploadedBy.fullName} · {new Date(doc.createdAt).toLocaleDateString()}</div>
+          </div>
+          <StatusBadge status={doc.status} />
         </div>
-        <StatusBadge status={doc.status} />
+        <div className="row" style={{ gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          {doc.priority && doc.priority !== "NORMAL" && <span className="badge" style={{ background: doc.priority === "CRITICAL" ? "var(--danger)" : "var(--warning)" }}>{doc.priority}</span>}
+          {doc.dueDate && <span className="badge" style={{ background: "var(--muted)" }}>Due {new Date(doc.dueDate).toLocaleDateString()}</span>}
+          {doc.confidential && <span className="badge" style={{ background: "var(--danger)" }}>CONFIDENTIAL</span>}
+          {doc.steps.length > 0 && <span className="badge" style={{ background: "var(--ink-soft)" }}>{doc.approvalMode}</span>}
+        </div>
+        {doc.notes && <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>📝 {doc.notes}</div>}
       </div>
 
       <div className="grid-main">
@@ -203,89 +213,79 @@ export default function DocumentDetail() {
               </>
             )}
             {!canSubmit && !canDecide && !canReopen && <p className="muted" style={{ margin: 0 }}>No actions available at this stage.</p>}
-            <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "14px 0" }} />
             {doc.finalPdfPath && (
               <>
-                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Final signed PDF</div>
-                <div className="row" style={{ flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                  <button className="btn btn-primary btn-sm" onClick={() => openPdf("final")}>📄 Open Final PDF</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => download("final")}>Download</button>
-                </div>
+                <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "14px 0" }} />
+                <button className="btn btn-primary btn-sm" style={{ width: "100%" }} onClick={() => openPdf("final")}>📄 Open Final Signed PDF</button>
               </>
             )}
-            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Downloads</div>
-            <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => download("original")}>Original</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => download("converted")}>Converted PDF</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => openPdf("converted")}>Open Converted</button>
-            </div>
           </div>
 
-          {/* Integrity & signature verification */}
-          {verify && (
-            <div className="card card-pad">
-              <h3>Integrity & Signature</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
-                <div>
-                  Signature type:{" "}
-                  <span className="badge" style={{ background: verify.signatureMethod === "DIGITAL" ? "var(--primary)" : "#1565c0" }}>
-                    {verify.signatureMethod === "DIGITAL" ? "Digital certificate" : "Image"}
-                  </span>
-                </div>
-                {verify.original && (
-                  <div>Original document: {verify.original.intact
-                    ? <span style={{ color: "var(--success)", fontWeight: 600 }}>✓ Unaltered</span>
-                    : <span style={{ color: "var(--danger)", fontWeight: 600 }}>✕ Tampered / changed</span>}</div>
-                )}
-                {verify.final && (
-                  <>
-                    <div>Final signed PDF: {verify.final.intact
-                      ? <span style={{ color: "var(--success)", fontWeight: 600 }}>✓ Verified / unaltered</span>
-                      : <span style={{ color: "var(--danger)", fontWeight: 600 }}>✕ Tampered — hash mismatch</span>}</div>
-                    {verify.final.digitallySigned && (
-                      <div style={{ color: "var(--success)" }}>🔒 Cryptographically signed (embedded PKCS#7)</div>
-                    )}
-                  </>
-                )}
-              </div>
-              <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }}
-                onClick={() => unwrap(api.get(`/documents/${id}/verify`)).then((v) => { setVerify(v); toast("Integrity re-checked"); }).catch((e) => toast(apiError(e), true))}>
-                ↻ Re-verify integrity
-              </button>
+          {/* Consolidated tabbed panel: Workflow · History · Files & Integrity */}
+          <div className="card">
+            <div className="tabs">
+              <button className={tab === "workflow" ? "active" : ""} onClick={() => setTab("workflow")}>Workflow</button>
+              <button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>History</button>
+              <button className={tab === "files" ? "active" : ""} onClick={() => setTab("files")}>Files</button>
             </div>
-          )}
+            <div className="card-pad">
+              {tab === "workflow" && (
+                <ol style={{ paddingLeft: 18, margin: 0 }}>
+                  {doc.steps.map((s: any) => (
+                    <li key={s.id} style={{ marginBottom: 8 }}>
+                      <strong>{s.signatory?.fullName || "Unknown user"}</strong> — <StatusBadge status={s.status} />
+                      {s.approvalType && <span className="badge" style={{ background: "#1565c0", marginLeft: 6 }}>{s.approvalType.name}</span>}
+                      {s.comment && <div className="muted" style={{ fontSize: 12 }}>"{s.comment}"</div>}
+                    </li>
+                  ))}
+                  {doc.steps.length === 0 && <span className="muted">Not yet submitted for approval.</span>}
+                </ol>
+              )}
 
-          {/* Approval steps */}
-          <div className="card card-pad">
-            <h3>Approval Workflow <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}>({doc.approvalMode})</span></h3>
-            <ol style={{ paddingLeft: 18, margin: 0 }}>
-              {doc.steps.map((s: any) => (
-                <li key={s.id} style={{ marginBottom: 8 }}>
-                  <strong>{s.signatory?.fullName || "Unknown user"}</strong> — <StatusBadge status={s.status} />
-                  {s.approvalType && <span className="badge" style={{ background: "#1565c0", marginLeft: 6 }}>{s.approvalType.name}</span>}
-                  {s.comment && <div className="muted" style={{ fontSize: 12 }}>"{s.comment}"</div>}
-                </li>
-              ))}
-              {doc.steps.length === 0 && <span className="muted">Not yet submitted.</span>}
-            </ol>
-          </div>
+              {tab === "history" && (
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {(doc.events || []).map((e: any) => (
+                    <li key={e.id} style={{ padding: "8px 0 8px 14px", borderLeft: "2px solid var(--border)", marginLeft: 4, position: "relative", fontSize: 13 }}>
+                      <span style={{ position: "absolute", left: -5, top: 12, width: 8, height: 8, borderRadius: "50%", background: "var(--primary)" }} />
+                      <strong>{EVENT_LABEL[e.action] || e.action.replace(/_/g, " ")}</strong>
+                      <div className="muted" style={{ fontSize: 12 }}>by {e.actorName || "System"} · {new Date(e.createdAt).toLocaleString()}</div>
+                      {e.detail && <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{e.detail}</div>}
+                    </li>
+                  ))}
+                  {(!doc.events || doc.events.length === 0) && <li className="muted" style={{ fontSize: 13 }}>No history yet.</li>}
+                </ul>
+              )}
 
-          {/* History */}
-          <div className="card card-pad">
-            <h3>History & Audit Trail</h3>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {(doc.events || []).map((e: any) => (
-                <li key={e.id} style={{ padding: "8px 0 8px 14px", borderLeft: "2px solid var(--border)", marginLeft: 4, position: "relative", fontSize: 13 }}>
-                  <span style={{ position: "absolute", left: -5, top: 12, width: 8, height: 8, borderRadius: "50%", background: "var(--primary)" }} />
-                  <strong>{EVENT_LABEL[e.action] || e.action.replace(/_/g, " ")}</strong>
-                  <div className="muted" style={{ fontSize: 12 }}>
-                    by {e.actorName || "System"} · {new Date(e.createdAt).toLocaleString()}
+              {tab === "files" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div>
+                    <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Open / download</div>
+                    <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+                      {doc.finalPdfPath && <button className="btn btn-ghost btn-sm" onClick={() => openPdf("final")}>Open Final</button>}
+                      <button className="btn btn-ghost btn-sm" onClick={() => openPdf("converted")}>Open Converted</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => download("original")}>⬇ Original</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => download("converted")}>⬇ Converted</button>
+                      {doc.finalPdfPath && <button className="btn btn-ghost btn-sm" onClick={() => download("final")}>⬇ Final</button>}
+                    </div>
                   </div>
-                  {e.detail && <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{e.detail}</div>}
-                </li>
-              ))}
-              {(!doc.events || doc.events.length === 0) && <li className="muted" style={{ fontSize: 13 }}>No history yet.</li>}
-            </ul>
+                  {verify && (
+                    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+                      <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Integrity &amp; signature</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 13 }}>
+                        <div>Signature type:{" "}
+                          <span className="badge" style={{ background: verify.signatureMethod === "DIGITAL" ? "var(--primary)" : "#1565c0" }}>{verify.signatureMethod === "DIGITAL" ? "Digital certificate" : "Image"}</span>
+                        </div>
+                        {verify.original && <div>Original: {verify.original.intact ? <span style={{ color: "var(--success)", fontWeight: 600 }}>✓ Unaltered</span> : <span style={{ color: "var(--danger)", fontWeight: 600 }}>✕ Changed</span>}</div>}
+                        {verify.final && <div>Final PDF: {verify.final.intact ? <span style={{ color: "var(--success)", fontWeight: 600 }}>✓ Verified</span> : <span style={{ color: "var(--danger)", fontWeight: 600 }}>✕ Tampered</span>}</div>}
+                        {verify.final?.digitallySigned && <div style={{ color: "var(--success)" }}>🔒 Cryptographically signed</div>}
+                      </div>
+                      <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }}
+                        onClick={() => unwrap(api.get(`/documents/${id}/verify`)).then((v) => { setVerify(v); toast("Integrity re-checked"); }).catch((e) => toast(apiError(e), true))}>↻ Re-verify</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

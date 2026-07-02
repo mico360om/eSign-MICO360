@@ -73,11 +73,14 @@ export default function Documents() {
           <div className="drop-overlay-box">📄 Drop the file here to upload a document</div>
         </div>
       )}
-      <div className="between" style={{ marginBottom: 18 }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Documents</h1>
+      <div className="between" style={{ marginBottom: 18, alignItems: "flex-start" }}>
+        <div>
+          <h1 className="page-title" style={{ margin: 0 }}>Documents</h1>
+          {canUpload && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>Tip: drag &amp; drop a file anywhere on this page to upload.</div>}
+        </div>
         <div className="row" style={{ gap: 8 }}>
           <button className="btn btn-ghost" onClick={() => setShowFilters((v) => !v)}>
-            Filters{activeFilters > 0 ? ` (${activeFilters})` : ""}
+            ⚙ Filters{activeFilters > 0 ? ` (${activeFilters})` : ""}
           </button>
           {can("UPLOAD") && <button className="btn btn-primary" onClick={() => setShowUpload(true)}>+ Upload Document</button>}
         </div>

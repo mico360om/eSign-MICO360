@@ -93,6 +93,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 @media (max-width: 860px) { .grid-2, .grid-main { grid-template-columns: 1fr; } }
 @media (max-width: 680px) { .grid-3 { grid-template-columns: 1fr; } }
 
+/* Tabs (card headers) */
+.tabs { display: flex; border-bottom: 1px solid var(--border); }
+.tabs button { flex: 1; background: transparent; border: none; padding: 11px 12px; font: inherit; font-weight: 600; font-size: 13px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button:hover { color: var(--ink); }
+.tabs button.active { color: var(--primary); border-bottom-color: var(--primary); }
+
 /* Badge / status pills */
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; }
 
@@ -122,6 +128,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .stat { padding: 13px 14px; }
 .stat .n { font-size: 23px; font-weight: 700; color: var(--primary); line-height: 1; }
 .stat .l { color: var(--muted); font-size: 12px; margin-top: 5px; }
+
+/* Section heading (dashboard groups etc.) */
+.section-title { font-size: 13px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px; display: flex; align-items: center; gap: 9px; }
+.section-title::before { content: ""; width: 4px; height: 15px; background: var(--primary); border-radius: 2px; }
 
 /* Misc */
 .row { display: flex; gap: 12px; align-items: center; }
