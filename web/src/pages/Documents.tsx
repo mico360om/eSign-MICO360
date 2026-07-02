@@ -28,6 +28,8 @@ export default function Documents() {
   const [showUpload, setShowUpload] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [allProfiles, setAllProfiles] = useState<any[]>([]);
+  const [droppedFile, setDroppedFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   const load = () => {
     setDocs(null); setErr("");
@@ -53,8 +55,24 @@ export default function Documents() {
   const profileOpts = Array.from(new Map((docs ?? []).map((d) => [d.profile?.id, d.profile?.name])).entries()).filter(([id]) => id);
   const activeFilters = [status, priority, profileFilter, dateFrom, dateTo].filter(Boolean).length;
 
+  // Drag & drop a file anywhere on the page to start an upload.
+  const canUpload = can("UPLOAD");
+  const onPageDragOver = (e: React.DragEvent) => { if (!canUpload) return; if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setDragActive(true); } };
+  const onPageDragLeave = (e: React.DragEvent) => { if (e.currentTarget === e.target) setDragActive(false); };
+  const onPageDrop = (e: React.DragEvent) => {
+    if (!canUpload) return;
+    e.preventDefault(); setDragActive(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) { setDroppedFile(f); setShowUpload(true); }
+  };
+
   return (
-    <div>
+    <div onDragOver={onPageDragOver} onDragLeave={onPageDragLeave} onDrop={onPageDrop} style={{ position: "relative", minHeight: "60vh" }}>
+      {dragActive && (
+        <div className="drop-overlay" onDragOver={onPageDragOver} onDrop={onPageDrop}>
+          <div className="drop-overlay-box">📄 Drop the file here to upload a document</div>
+        </div>
+      )}
       <div className="between" style={{ marginBottom: 18 }}>
         <h1 className="page-title" style={{ margin: 0 }}>Documents</h1>
         <div className="row" style={{ gap: 8 }}>
@@ -155,8 +173,9 @@ export default function Documents() {
       {showUpload && (
         <UploadModal
           profiles={can("MANAGE_PROFILES") ? allProfiles : me!.profiles.filter((p: any) => p.isActive)}
-          onClose={() => setShowUpload(false)}
-          onDone={(doc: any) => { setShowUpload(false); toast("Document uploaded & converted to PDF"); if (doc?.id) nav(`/documents/${doc.id}`); else load(); }}
+          initialFile={droppedFile}
+          onClose={() => { setShowUpload(false); setDroppedFile(null); }}
+          onDone={(doc: any) => { setShowUpload(false); setDroppedFile(null); toast("Document uploaded & converted to PDF"); if (doc?.id) nav(`/documents/${doc.id}`); else load(); }}
           onError={(m) => toast(m, true)}
         />
       )}
@@ -164,10 +183,10 @@ export default function Documents() {
   );
 }
 
-function UploadModal({ profiles, onClose, onDone, onError }: { profiles: any[]; onClose: () => void; onDone: () => void; onError: (m: string) => void }) {
-  const [title, setTitle] = useState("");
+function UploadModal({ profiles, initialFile, onClose, onDone, onError }: { profiles: any[]; initialFile?: File | null; onClose: () => void; onDone: (doc?: any) => void; onError: (m: string) => void }) {
+  const [title, setTitle] = useState(initialFile ? initialFile.name.replace(/\.[^.]+$/, "") : "");
   const [profileId, setProfileId] = useState(profiles[0]?.id || "");
-  const [file, setFile] = useState<File | null>(null);
+  const [file, setFile] = useState<File | null>(initialFile || null);
   const [priority, setPriority] = useState("NORMAL");
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");

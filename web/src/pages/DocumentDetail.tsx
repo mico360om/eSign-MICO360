@@ -524,7 +524,6 @@ function rectsOverlap(a: any, b: any) {
 }
 
 function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, requestedType, stampedPages = [], existingPlacements = [], initialKind, onClose, onDone, onError }: any) {
-  const docHasStamp = stampedPages.length > 0;
   const [kind, setKind] = useState<"SIGNATURE" | "STAMP">(initialKind || (canSign ? "SIGNATURE" : "STAMP"));
   const [marks, setMarks] = useState<any[]>([]);
   const [markUrls, setMarkUrls] = useState<Record<string, string>>({});
@@ -600,12 +599,18 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
         }
       } else {
         if (!stampId) throw new Error("Select a stamp");
-        // One company stamp per DOCUMENT — placed once, on the selected page.
-        if (docHasStamp) throw new Error("This document already has a company stamp (one stamp per document).");
+        // The company stamp is applied to EVERY page by default (all pages of a
+        // document are one document). One stamp per page — skip already-stamped.
+        const stampedSet = new Set<number>(stampedPages);
+        const target = pages.filter((pg) => !stampedSet.has(pg));
+        if (target.length === 0) throw new Error("Every selected page already has the company stamp.");
         const coords = pos === "saved" ? POSITIONS["bottom-right"] : POSITIONS[pos];
-        if (!overlapOk([page], coords.x, coords.y, 0.26, 0.12)) { setBusy(false); return; }
-        await api.post(`/documents/${docId}/placements`, { kind: "STAMP", stampId, page, width: 0.26, height: 0.12, ...coords });
-        onDone("Stamp applied");
+        if (!overlapOk(target, coords.x, coords.y, 0.26, 0.12)) { setBusy(false); return; }
+        for (const pg of target) {
+          await api.post(`/documents/${docId}/placements`, { kind: "STAMP", stampId, page: pg, width: 0.26, height: 0.12, ...coords });
+        }
+        const skipped = pages.length - target.length;
+        onDone(`Company stamp applied to ${target.length} page${target.length > 1 ? "s" : ""}${skipped > 0 ? ` (${skipped} already stamped)` : ""}`);
         return;
       }
       onDone();
@@ -665,17 +670,17 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
         <div className="field"><label>Company stamp</label>
           <select value={stampId} onChange={(e) => setStampId(e.target.value)}>{stamps.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           {stamps.length === 0 && <p className="muted" style={{ fontSize: 12 }}>No stamps available in this company.</p>}
-          <p className="muted" style={{ fontSize: 12 }}>{docHasStamp ? "This document is already stamped — only one company stamp is allowed per document." : "One company stamp per document, placed on the page you choose below."}</p>
+          <p className="muted" style={{ fontSize: 12 }}>{pageCount > 1 ? "The company stamp is applied to all pages by default (one stamp per page)." : "The company stamp is applied to the document."}{stampedPages.length > 0 ? ` Already stamped: page ${[...stampedPages].sort((a: number, b: number) => a - b).join(", ")}.` : ""}</p>
         </div>
       )}
 
       <div className="row">
-        {kind === "SIGNATURE" && pageCount > 1 ? (
+        {pageCount > 1 ? (
           <div className="field grow">
             <label>Pages</label>
             <label className="row" style={{ gap: 6, marginBottom: 6 }}>
               <input type="checkbox" style={{ width: "auto" }} checked={allPages} onChange={(e) => setAllPages(e.target.checked)} />
-              All {pageCount} pages
+              All {pageCount} pages{kind === "STAMP" ? " (recommended)" : ""}
             </label>
             {!allPages && <input type="number" min={1} max={pageCount} value={page} onChange={(e) => setPage(Number(e.target.value))} />}
           </div>
