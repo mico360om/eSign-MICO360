@@ -146,22 +146,20 @@ export default function DocumentDetail() {
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => nav(-1)} title="Go back">← Back</button>
-        <div className="between" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-          <div style={{ minWidth: 0 }}>
-            <h1 className="page-title" style={{ margin: 0 }}>{doc.title}</h1>
-            <div className="muted" style={{ fontSize: 13 }}>{doc.profile?.name} · uploaded by {doc.uploadedBy.fullName} · {new Date(doc.createdAt).toLocaleDateString()}</div>
-          </div>
+      <div style={{ marginBottom: 14 }}>
+        <div className="between" style={{ gap: 12, marginBottom: 8, alignItems: "center" }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => nav(-1)} title="Go back">← Back</button>
           <StatusBadge status={doc.status} />
         </div>
-        <div className="row" style={{ gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+        <h1 className="page-title" style={{ margin: "0 0 4px" }}>{doc.title}</h1>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <span className="muted" style={{ fontSize: 13 }}>{doc.profile?.name} · uploaded by {doc.uploadedBy.fullName} · {new Date(doc.createdAt).toLocaleDateString()}</span>
           {doc.priority && doc.priority !== "NORMAL" && <span className="badge" style={{ background: doc.priority === "CRITICAL" ? "var(--danger)" : "var(--warning)" }}>{doc.priority}</span>}
           {doc.dueDate && <span className="badge" style={{ background: "var(--muted)" }}>Due {new Date(doc.dueDate).toLocaleDateString()}</span>}
           {doc.confidential && <span className="badge" style={{ background: "var(--danger)" }}>CONFIDENTIAL</span>}
           {doc.steps.length > 0 && <span className="badge" style={{ background: "var(--ink-soft)" }}>{doc.approvalMode}</span>}
+          {doc.notes && <span className="muted" style={{ fontSize: 13 }}>· 📝 {doc.notes}</span>}
         </div>
-        {doc.notes && <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>📝 {doc.notes}</div>}
       </div>
 
       <div className="grid-main">
