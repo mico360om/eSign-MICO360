@@ -6,7 +6,8 @@
   --primary-soft: #f6e9e9;
   --ink: #1e1f1e;
   --ink-soft: #4a4b4a;
-  --muted: #8a8c8a;
+  --muted: #6a6c6a; /* WCAG-AA (~5.4:1 on white); was #8a8c8a (~3.4:1, failed) */
+  --muted-faint: #8a8c8a; /* decorative only — dots, disabled, non-text */
   --surface: #ffffff;
   --bg: #f5f3f2;
   --border: #e3e0de;
@@ -16,6 +17,25 @@
   --info: #1565c0;
   --radius: 10px;
   --radius-sm: 6px;
+  --radius-xs: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  /* Type scale — use var(--text-*) instead of ad-hoc inline font sizes */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-base: 14px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --text-3xl: 28px;
+  /* Spacing scale — use var(--space-*) for consistent rhythm */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
   --shadow-sm: 0 1px 2px rgba(30, 31, 30, 0.08);
   --shadow-md: 0 4px 14px rgba(30, 31, 30, 0.1);
   --shadow-lg: 0 10px 30px rgba(30, 31, 30, 0.14);
@@ -43,6 +63,24 @@ h1, h2, h3, h4 { margin: 0 0 0.4em; font-weight: 700; }
 .btn-success { background: var(--success); color: #fff; }
 .btn-sm { padding: 5px 10px; font-size: 12.5px; }
 
+/* Keyboard focus ring (a11y) — visible for keyboard users, not on mouse click.
+   Buttons/links/nav had no focus indicator at all. */
+.btn:focus-visible, a:focus-visible, .tabs button:focus-visible,
+.settings-nav button:focus-visible, .table th.sortable:focus-visible,
+select:focus-visible, [role="button"]:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}
+/* On the dark sidebar a maroon ring is invisible — use white there. */
+.nav a:focus-visible, .nav-sub a:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+
+/* Typography utilities — prefer these over inline fontSize values. */
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-md { font-size: var(--text-md); }
+.text-lg { font-size: var(--text-lg); }
+.card-title { margin: 0 0 var(--space-4); font-size: var(--text-lg); font-weight: 700; }
+
 /* Inputs */
 .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
 .field label { font-weight: 600; font-size: 12.5px; color: var(--ink-soft); }
@@ -51,6 +89,22 @@ input, select, textarea {
   border-radius: var(--radius-sm); background: #fff; color: var(--ink); width: 100%;
 }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary-light); box-shadow: 0 0 0 3px var(--primary-soft); }
+/* Checkboxes/radios must never stretch to the global 100% input width. */
+input[type="checkbox"], input[type="radio"] { width: auto; }
+.field label .muted { font-weight: 400; }
+
+/* Form layout primitives — keep every form field aligned to one standard.
+   .form-grid: responsive two-column grid with a real row gap and top-aligned
+   cells (so a label that wraps to two lines never pushes its neighbour's input
+   out of line). Child .field margins are zeroed — the grid gap owns spacing. */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; align-items: start; margin-bottom: 14px; }
+.form-grid > .field { margin-bottom: 0; }
+.col-span-2 { grid-column: 1 / -1; }
+/* .check: a checkbox/radio with its label on one line, vertically centred.
+   Use this instead of stuffing a checkbox into a .field column. */
+.check { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 13.5px; color: var(--ink); cursor: pointer; }
+.check input { width: auto; margin: 0; flex-shrink: 0; }
+.form-grid > .check { margin-bottom: 0; }
 
 /* Card */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
@@ -172,10 +226,14 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
   .topbar { padding: 0 12px; }
   .page-title { font-size: 19px; }
   .content { padding: 12px; }
+  /* Comfortable touch targets on phones (were ~28px, below the 40px minimum). */
+  .btn { min-height: 44px; }
+  .btn-sm { padding: 9px 12px; min-height: 40px; }
+  .table td .btn-sm, .actions-cell .btn-sm { min-height: 36px; }
 }
 /* On phones, collapse two-column modal/account form grids to a single column. */
 @media (max-width: 560px) {
-  .modal [style*="1fr 1fr"], .account-grid { grid-template-columns: 1fr !important; }
+  .modal [style*="1fr 1fr"], .account-grid, .form-grid { grid-template-columns: 1fr !important; }
 }
 
 /* ── System Settings page ── */
@@ -232,8 +290,21 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .drop-overlay { position: absolute; inset: -8px; z-index: 40; background: rgba(138, 26, 28, 0.06); border: 2px dashed var(--primary); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; }
 .drop-overlay-box { background: var(--surface); border: 1px solid var(--primary-light); border-radius: var(--radius); padding: 20px 28px; font-weight: 700; color: var(--primary); box-shadow: var(--shadow-md); pointer-events: none; }
 
-.toast { position: fixed; bottom: 22px; right: 22px; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); z-index: 100; max-width: 90vw; }
+.toast { position: fixed; bottom: 22px; right: 22px; background: var(--ink); color: #fff; padding: 11px 14px 11px 18px; border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); z-index: 100; max-width: 90vw; display: flex; align-items: center; gap: 14px; animation: toast-in 0.18s ease-out; }
 .toast.err { background: var(--danger); }
+.toast.success { background: var(--success); }
+.toast-msg { font-size: 13.5px; }
+.toast-action { background: transparent; border: 1px solid rgba(255,255,255,0.55); color: #fff; font: inherit; font-weight: 700; font-size: 12.5px; padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+.toast-action:hover { background: rgba(255,255,255,0.16); }
+.toast-x { background: transparent; border: none; color: #fff; opacity: 0.8; cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 4px; }
+.toast-x:hover { opacity: 1; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Skeleton loading placeholders (tables/cards) — replace full-page spinners. */
+.skeleton { position: relative; overflow: hidden; background: #ecebe9; border-radius: var(--radius-xs); }
+.skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.65), transparent); animation: skeleton-shimmer 1.3s infinite; }
+.skeleton-line { display: block; height: 12px; }
+@keyframes skeleton-shimmer { 100% { transform: translateX(100%); } }
 .checklist { display: flex; flex-wrap: wrap; gap: 8px; }
 .checklist label { display: flex; align-items: center; gap: 6px; font-weight: 500; background: var(--bg); padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); cursor: pointer; }
 .checklist input { width: auto; }

@@ -43,7 +43,7 @@ export default function UpdateNotifier() {
         {state.phase === "downloaded"
           ? <button className="btn btn-sm" onClick={() => bridge.install()}>Restart &amp; Install</button>
           : state.phase === "available"
-            ? <button className="btn btn-sm" onClick={() => nav("/legal/about")}>View &amp; Update</button>
+            ? <button className="btn btn-sm" onClick={() => nav("/updates")}>View &amp; Update</button>
             : null}
         {!state.forced && state.phase !== "downloaded" && (
           <button className="update-banner-x" aria-label="Dismiss" onClick={() => setDismissed(true)}>✕</button>

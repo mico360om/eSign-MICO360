@@ -1,5 +1,5 @@
 import { ReactNode, useMemo, useState } from "react";
-import { Spinner } from "./ui";
+import { Skeleton } from "./ui";
 
 export interface Column<T> {
   key: string;
@@ -34,6 +34,14 @@ interface Props<T> {
   pageSize?: number;
   emptyText?: string;
   toolbarExtra?: ReactNode;
+  /** Optional row selection for bulk actions. */
+  selectable?: boolean;
+  isRowSelectable?: (row: T) => boolean;
+  selectedKeys?: Set<string>;
+  onSelectedKeysChange?: (keys: Set<string>) => void;
+  /** Empty-state "Clear filters" button — clears parent-owned filters too. */
+  onClearFilters?: () => void;
+  filtersActive?: boolean;
 }
 
 export function DataTable<T>({
@@ -50,6 +58,12 @@ export function DataTable<T>({
   pageSize = 10,
   emptyText = "No records found.",
   toolbarExtra,
+  selectable,
+  isRowSelectable,
+  selectedKeys,
+  onSelectedKeysChange,
+  onClearFilters,
+  filtersActive,
 }: Props<T>) {
   const [q, setQ] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -87,6 +101,19 @@ export function DataTable<T>({
     else { setSortKey(col.key); setSortDir("asc"); }
   };
 
+  // Selection (bulk actions)
+  const sel = selectedKeys ?? new Set<string>();
+  const canSelect = (r: T) => !isRowSelectable || isRowSelectable(r);
+  const selectablePageRows = pageRows.filter(canSelect);
+  const allPageSelected = selectablePageRows.length > 0 && selectablePageRows.every((r) => sel.has(rowKey(r)));
+  const somePageSelected = selectablePageRows.some((r) => sel.has(rowKey(r)));
+  const toggleRow = (r: T) => { const n = new Set(sel); const k = rowKey(r); n.has(k) ? n.delete(k) : n.add(k); onSelectedKeysChange?.(n); };
+  const toggleAllPage = () => { const n = new Set(sel); if (allPageSelected) selectablePageRows.forEach((r) => n.delete(rowKey(r))); else selectablePageRows.forEach((r) => n.add(rowKey(r))); onSelectedKeysChange?.(n); };
+  const colCount = columns.length + (selectable ? 1 : 0);
+
+  const searchOrFilterActive = !!q || filters.some((f) => f.value) || !!filtersActive;
+  const clearAll = () => { setQ(""); filters.forEach((f) => f.onChange("")); setPage(0); onClearFilters?.(); };
+
   return (
     <div>
       <div className="toolbar">
@@ -101,16 +128,14 @@ export function DataTable<T>({
         ))}
         {toolbarExtra}
         <div className="spacer" />
-        {(q || filters.some((f) => f.value)) && (
-          <button className="btn btn-ghost btn-sm" onClick={() => { setQ(""); filters.forEach((f) => f.onChange("")); setPage(0); }}>Clear</button>
+        {searchOrFilterActive && (
+          <button className="btn btn-ghost btn-sm" onClick={clearAll}>Clear</button>
         )}
         {onRefresh && <button className="btn btn-ghost btn-sm" onClick={onRefresh}>↻ Refresh</button>}
       </div>
 
       <div className="card">
-        {loading ? (
-          <Spinner />
-        ) : error ? (
+        {error ? (
           <div className="empty-state" style={{ color: "var(--danger)" }}>{error}</div>
         ) : (
           <>
@@ -118,23 +143,62 @@ export function DataTable<T>({
               <table className="table">
                 <thead>
                   <tr>
+                    {selectable && (
+                      <th style={{ width: 1 }}>
+                        {!loading && (
+                          <input type="checkbox" aria-label="Select all rows on this page"
+                            ref={(el) => { if (el) el.indeterminate = !allPageSelected && somePageSelected; }}
+                            checked={allPageSelected} onChange={toggleAllPage} />
+                        )}
+                      </th>
+                    )}
                     {columns.map((c) => (
-                      <th key={c.key} className={c.sortable === false ? "" : "sortable"} onClick={() => toggleSort(c)}>
+                      <th key={c.key} className={c.sortable === false ? "" : "sortable"} onClick={() => !loading && toggleSort(c)}
+                        aria-sort={sortKey === c.key ? (sortDir === "asc" ? "ascending" : "descending") : undefined}>
                         {c.header}{sortKey === c.key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {pageRows.map((r) => (
-                    <tr key={rowKey(r)} onClick={onRowClick ? () => onRowClick(r) : undefined} style={onRowClick ? { cursor: "pointer" } : undefined}>
-                      {columns.map((c) => (
-                        <td key={c.key} className={c.className}>{c.render ? c.render(r) : (r as any)[c.key]}</td>
-                      ))}
-                    </tr>
-                  ))}
-                  {pageRows.length === 0 && (
-                    <tr><td colSpan={columns.length}><div className="empty-state">{emptyText}</div></td></tr>
+                  {loading ? (
+                    Array.from({ length: Math.min(pageSize, 6) }).map((_, i) => (
+                      <tr key={`sk-${i}`}>
+                        {selectable && <td style={{ width: 1 }}><Skeleton width={16} height={16} /></td>}
+                        {columns.map((c) => (
+                          <td key={c.key} className={c.className}><Skeleton width={`${45 + ((i * 17 + c.key.length * 11) % 45)}%`} /></td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : (
+                    <>
+                      {pageRows.map((r) => {
+                        const isSel = !!selectable && sel.has(rowKey(r));
+                        return (
+                          <tr key={rowKey(r)} onClick={onRowClick ? () => onRowClick(r) : undefined}
+                            style={{ ...(onRowClick ? { cursor: "pointer" } : {}), ...(isSel ? { background: "var(--primary-soft)" } : {}) }}>
+                            {selectable && (
+                              <td style={{ width: 1 }} onClick={(e) => e.stopPropagation()}>
+                                {canSelect(r) ? <input type="checkbox" aria-label="Select row" checked={sel.has(rowKey(r))} onChange={() => toggleRow(r)} /> : null}
+                              </td>
+                            )}
+                            {columns.map((c) => (
+                              <td key={c.key} className={c.className}>{c.render ? c.render(r) : (r as any)[c.key]}</td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                      {pageRows.length === 0 && (
+                        <tr><td colSpan={colCount}>
+                          <div className="empty-state">
+                            <div>{emptyText}</div>
+                            {searchOrFilterActive && (
+                              <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={clearAll}>Clear filters</button>
+                            )}
+                          </div>
+                        </td></tr>
+                      )}
+                    </>
                   )}
                 </tbody>
               </table>

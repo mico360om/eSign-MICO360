@@ -30,9 +30,14 @@ export default function Documents() {
   const [allProfiles, setAllProfiles] = useState<any[]>([]);
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const canApprove = can("APPROVE");
+  const canReject = can("REJECT");
+  const bulkEnabled = canApprove || canReject;
 
   const load = () => {
-    setDocs(null); setErr("");
+    setDocs(null); setErr(""); setSelectedIds(new Set());
     const params: Record<string, string> = {};
     if (status) params.status = status;
     if (priority) params.priority = priority;
@@ -44,7 +49,7 @@ export default function Documents() {
 
   useEffect(() => {
     load();
-    if (can("MANAGE_PROFILES")) unwrap(api.get("/profiles")).then(setAllProfiles).catch(() => {});
+    if (can("MANAGE_PROFILES")) unwrap(api.get("/profiles")).then(setAllProfiles).catch((e) => toast(apiError(e), true));
   }, []);
 
   // Sync the status filter when navigated via the sidebar sub-menu (?status=...).
@@ -65,6 +70,24 @@ export default function Documents() {
     const f = e.dataTransfer.files?.[0];
     if (f) { setDroppedFile(f); setShowUpload(true); }
   };
+
+  // Bulk approve/reject — only documents awaiting a decision are selectable.
+  // The server enforces per-document permission/turn and reports any it skipped.
+  const isRowSelectable = (d: any) => ["PENDING_APPROVAL", "PARTIALLY_APPROVED", "PENDING_SIGNATURE"].includes(d.status);
+  const bulkDecide = async (decision: "APPROVE" | "REJECT") => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      const res: any = await unwrap(api.post("/documents/bulk-decision", { ids, decision }));
+      const verb = decision === "APPROVE" ? "approved" : "rejected";
+      if (res.failed > 0) toast(`${res.succeeded} ${verb}, ${res.failed} skipped (not your turn or not permitted)`, res.succeeded === 0);
+      else toast(`${res.succeeded} document${res.succeeded === 1 ? "" : "s"} ${verb}`, false, { type: "success" });
+      setSelectedIds(new Set());
+      load();
+    } catch (e) { toast(apiError(e), true); } finally { setBulkBusy(false); }
+  };
+  const clearFilters = () => { setStatus(""); setPriority(""); setProfileFilter(""); setDateFrom(""); setDateTo(""); };
 
   return (
     <div onDragOver={onPageDragOver} onDragLeave={onPageDragLeave} onDrop={onPageDrop} style={{ position: "relative", minHeight: "60vh" }}>
@@ -89,7 +112,7 @@ export default function Documents() {
       {/* Advanced filter panel */}
       {showFilters && (
         <div className="card card-pad" style={{ marginBottom: 18 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
             <div className="field" style={{ margin: 0 }}>
               <label>Status</label>
               <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -127,6 +150,18 @@ export default function Documents() {
         </div>
       )}
 
+      {/* Bulk action bar — appears when documents are selected */}
+      {bulkEnabled && selectedIds.size > 0 && (
+        <div className="card card-pad" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderLeft: "3px solid var(--primary)" }}>
+          <strong>{selectedIds.size} selected</strong>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            {canApprove && <button className="btn btn-success btn-sm" disabled={bulkBusy} onClick={() => bulkDecide("APPROVE")}>{bulkBusy ? "Working…" : "✓ Approve selected"}</button>}
+            {canReject && <button className="btn btn-danger btn-sm" disabled={bulkBusy} onClick={() => bulkDecide("REJECT")}>{bulkBusy ? "Working…" : "✕ Reject selected"}</button>}
+            <button className="btn btn-ghost btn-sm" disabled={bulkBusy} onClick={() => setSelectedIds(new Set())}>Clear selection</button>
+          </div>
+        </div>
+      )}
+
       <DataTable
         rows={docs ?? []}
         loading={docs === null}
@@ -137,6 +172,12 @@ export default function Documents() {
         searchPlaceholder="Search title, company, requester…"
         searchValue={(d: any) => `${d.title} ${d.profile?.name ?? ""} ${d.uploadedBy?.fullName ?? ""}`}
         filters={[]}
+        selectable={bulkEnabled}
+        isRowSelectable={isRowSelectable}
+        selectedKeys={selectedIds}
+        onSelectedKeysChange={setSelectedIds}
+        onClearFilters={clearFilters}
+        filtersActive={activeFilters > 0}
         emptyText="No documents match your search."
         columns={[
           { key: "title", header: "Title", render: (d: any) => (
@@ -227,8 +268,8 @@ function UploadModal({ profiles, initialFile, onClose, onDone, onError }: { prof
       footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy || profiles.length === 0} onClick={submit}>{busy ? "Uploading…" : "Upload"}</button></>}>
       {profiles.length === 0 && <p className="muted" style={{ marginBottom: 10 }}>You are not assigned to any active company. Ask an admin to add you to a company first.</p>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
-        <div className="field" style={{ gridColumn: "1 / -1" }}>
+      <div className="form-grid">
+        <div className="field col-span-2">
           <label>Title</label>
           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
         </div>
@@ -250,10 +291,10 @@ function UploadModal({ profiles, initialFile, onClose, onDone, onError }: { prof
           <label>Due Date <span className="muted">(optional)</span></label>
           <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </div>
-        <div className="field" style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 22 }}>
-          <input type="checkbox" id="conf-chk" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} style={{ width: "auto" }} />
-          <label htmlFor="conf-chk" style={{ margin: 0, fontWeight: 400 }}>Confidential document</label>
-        </div>
+        <label className="check col-span-2">
+          <input type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} />
+          Confidential document
+        </label>
       </div>
 
       <div className="field">

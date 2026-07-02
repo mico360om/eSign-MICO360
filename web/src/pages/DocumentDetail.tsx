@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, apiError, unwrap } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Modal, Spinner, StatusBadge, useToast } from "../components/ui";
@@ -147,9 +147,10 @@ export default function DocumentDetail() {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
+        <button className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }} onClick={() => nav(-1)} title="Go back">← Back</button>
         <div className="between" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
           <div style={{ minWidth: 0 }}>
-            <h1 style={{ margin: 0 }}>{doc.title}</h1>
+            <h1 className="page-title" style={{ margin: 0 }}>{doc.title}</h1>
             <div className="muted" style={{ fontSize: 13 }}>{doc.profile?.name} · uploaded by {doc.uploadedBy.fullName} · {new Date(doc.createdAt).toLocaleDateString()}</div>
           </div>
           <StatusBadge status={doc.status} />
@@ -201,8 +202,8 @@ export default function DocumentDetail() {
                 )}
                 <div className="field"><label>Comment (optional)</label><textarea rows={2} value={comment} onChange={(e) => setComment(e.target.value)} /></div>
                 <div className="row">
-                  {can("APPROVE") && <button className="btn btn-success grow" disabled={busy} onClick={() => decide("APPROVE")}>✓ Approve</button>}
-                  {can("REJECT") && <button className="btn btn-danger grow" disabled={busy} onClick={() => decide("REJECT")}>✕ Reject</button>}
+                  {can("APPROVE") && <button className="btn btn-success grow" disabled={busy} onClick={() => decide("APPROVE")}>{busy ? "Working…" : "✓ Approve"}</button>}
+                  {can("REJECT") && <button className="btn btn-danger grow" disabled={busy} onClick={() => decide("REJECT")}>{busy ? "Working…" : "✕ Reject"}</button>}
                 </div>
               </>
             )}
@@ -344,10 +345,10 @@ function EditDetailsModal({ doc, isAdmin, myProfiles, onClose, onDone, onError }
 
   return (
     <Modal title="Edit Document Details" onClose={onClose}
-      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={save}>Save</button></>}>
+      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button></>}>
       <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>These can be changed until the document is submitted for approval.</p>
       <div className="field"><label>Title</label><input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+      <div className="form-grid">
         <div className="field"><label>Company</label>
           <select value={profileId} onChange={(e) => setProfileId(e.target.value)}>
             {companies.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -361,10 +362,10 @@ function EditDetailsModal({ doc, isAdmin, myProfiles, onClose, onDone, onError }
         <div className="field"><label>Due Date <span className="muted">(optional)</span></label>
           <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </div>
-        <div className="field" style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 22 }}>
-          <input type="checkbox" id="edit-conf" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} style={{ width: "auto" }} />
-          <label htmlFor="edit-conf" style={{ margin: 0, fontWeight: 400 }}>Confidential</label>
-        </div>
+        <label className="check col-span-2">
+          <input type="checkbox" checked={confidential} onChange={(e) => setConfidential(e.target.checked)} />
+          Confidential
+        </label>
       </div>
       <div className="field"><label>Notes / Instructions <span className="muted">(optional)</span></label>
         <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -386,12 +387,26 @@ function SubmitModal({ docId, profileId, onClose, onDone, onError }: any) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    unwrap(api.get(`/lookups/profiles/${profileId}/signatories`)).then(setSigs).catch(() => {});
+    unwrap(api.get(`/lookups/profiles/${profileId}/signatories`)).then((list) => {
+      setSigs(list);
+      // Restore the last-used signatory list for this company (dropping any that
+      // are no longer valid), so a repeated approval chain is one click.
+      try {
+        const saved = JSON.parse(localStorage.getItem(`sigList:${profileId}`) || "null");
+        if (saved && Array.isArray(saved.selected)) {
+          const valid = new Set(list.map((s: any) => s.id));
+          const sel = saved.selected.filter((id: string) => valid.has(id));
+          if (sel.length) { setSelected(sel); setSigTypes(saved.sigTypes || {}); if (saved.approvalMode) setApprovalMode(saved.approvalMode); }
+        }
+      } catch { /* ignore corrupt cache */ }
+    }).catch((e) => onError(apiError(e)));
     unwrap(api.get(`/lookups/profiles/${profileId}/groups`)).then(setGroups).catch(() => {});
     unwrap(api.get(`/approval-types`)).then(setTypes).catch(() => {});
   }, [profileId]);
 
   const toggle = (id: string, on: boolean) => setSelected(on ? [...selected, id] : selected.filter((x) => x !== id));
+  const allSelected = sigs.length > 0 && selected.length === sigs.length;
+  const toggleAll = () => setSelected(allSelected ? [] : sigs.map((s: any) => s.id));
 
   const submit = async () => {
     if (mode === "users" && selected.length === 0) return onError("Select at least one signatory");
@@ -402,13 +417,14 @@ function SubmitModal({ docId, profileId, onClose, onDone, onError }: any) {
         ? { signatureGroupId: groupId }
         : { signatoryIds: selected, approvalMode, signatoryTypes: Object.fromEntries(selected.map((id) => [id, sigTypes[id]]).filter(([, v]) => v)) };
       await api.post(`/documents/${docId}/submit`, { ...base, signatureMethod });
+      if (mode === "users") { try { localStorage.setItem(`sigList:${profileId}`, JSON.stringify({ selected, sigTypes, approvalMode })); } catch { /* ignore */ } }
       onDone();
     } catch (e) { onError(apiError(e)); } finally { setBusy(false); }
   };
 
   return (
     <Modal title="Submit for Approval" onClose={onClose}
-      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={submit}>Submit</button></>}>
+      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={submit}>{busy ? "Submitting…" : "Submit"}</button></>}>
       <div className="row" style={{ marginBottom: 14 }}>
         <label className="row" style={{ gap: 6 }}><input type="radio" style={{ width: "auto" }} checked={mode === "users"} onChange={() => setMode("users")} /> Pick signatories</label>
         <label className="row" style={{ gap: 6, opacity: groups.length === 0 ? 0.5 : 1 }} title={groups.length === 0 ? "No signature groups defined for this company" : ""}>
@@ -418,6 +434,12 @@ function SubmitModal({ docId, profileId, onClose, onDone, onError }: any) {
       {mode === "users" ? (
         <>
           <div className="field"><label>Signatories &amp; the kind of approval you want from each</label>
+            {sigs.length > 1 && (
+              <label className="check" style={{ marginBottom: 6 }}>
+                <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = selected.length > 0 && !allSelected; }} onChange={toggleAll} />
+                Select all ({sigs.length})
+              </label>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {sigs.map((s) => {
                 const on = selected.includes(s.id);
@@ -450,7 +472,7 @@ function SubmitModal({ docId, profileId, onClose, onDone, onError }: any) {
       ) : (
         <div className="field"><label>Signature group</label>
           {groups.length === 0 ? (
-            <p className="muted" style={{ fontSize: 12 }}>No signature groups are defined for this company yet. Create one under <strong>Signature Groups</strong>, or use “Pick signatories” above.</p>
+            <p className="muted" style={{ fontSize: 12 }}>No signature groups are defined for this company yet. Create one under <Link to="/signature-groups" onClick={onClose}><strong>Signature Groups</strong></Link>, or use “Pick signatories” above.</p>
           ) : (
             <>
               <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
@@ -533,7 +555,11 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
   const [types, setTypes] = useState<any[]>([]);
   const [allPages, setAllPages] = useState(true);
   const [page, setPage] = useState(1);
-  const [pos, setPos] = useState("saved");
+  // Signatures restore the user's last-used position; stamps default via the effect below.
+  const [pos, setPos] = useState<string>(() => {
+    if (initialKind === "STAMP") return "saved";
+    try { return localStorage.getItem("sigPos") || "saved"; } catch { return "saved"; }
+  });
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("Signature");
   const [newType, setNewType] = useState<string>(requestedType?.id || "");
@@ -541,6 +567,8 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
 
   // Stamps have no "saved" position — default them to a concrete grid position.
   useEffect(() => { if (kind === "STAMP" && pos === "saved") setPos("bottom-right"); }, [kind]); // eslint-disable-line
+  // Remember the last signature position chosen (per browser) for next time.
+  useEffect(() => { if (kind === "SIGNATURE") { try { localStorage.setItem("sigPos", pos); } catch { /* ignore */ } } }, [pos, kind]);
 
   const loadMarks = async () => {
     const list = await unwrap(api.get("/account/marks")).catch(() => []);
@@ -556,7 +584,7 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
   };
 
   useEffect(() => {
-    unwrap(api.get(`/lookups/profiles/${profileId}/stamps`)).then((s) => { setStamps(s); setStampId(s[0]?.id || ""); }).catch(() => {});
+    unwrap(api.get(`/lookups/profiles/${profileId}/stamps`)).then((s) => { setStamps(s); setStampId(s[0]?.id || ""); }).catch((e) => onError(apiError(e)));
     unwrap(api.get(`/approval-types`)).then(setTypes).catch(() => {});
     loadMarks();
   }, [profileId]);
@@ -653,15 +681,19 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
             <button className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}>+ Add new signature</button>
           ) : (
             <div className="card" style={{ padding: 10, marginTop: 4 }}>
-              <input placeholder="Label (e.g. Signature, Initials)" value={label} onChange={(e) => setLabel(e.target.value)} style={{ marginBottom: 6 }} />
+              <div className="field"><label>Label</label>
+                <input placeholder="e.g. Signature, Initials" value={label} onChange={(e) => setLabel(e.target.value)} />
+              </div>
               {types.length > 0 && (
-                <select value={newType} onChange={(e) => setNewType(e.target.value)} style={{ marginBottom: 6 }}>
-                  <option value="">For any approval type</option>
-                  {types.map((t) => <option key={t.id} value={t.id}>For "{t.name}" approvals</option>)}
-                </select>
+                <div className="field"><label>Approval type</label>
+                  <select value={newType} onChange={(e) => setNewType(e.target.value)}>
+                    <option value="">For any approval type</option>
+                    {types.map((t) => <option key={t.id} value={t.id}>For "{t.name}" approvals</option>)}
+                  </select>
+                </div>
               )}
               <SignaturePad onSave={saveNewMark} onError={onError} />
-              <button className="btn btn-ghost btn-sm" style={{ marginTop: 6 }} onClick={() => setAdding(false)}>Cancel</button>
+              <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={() => setAdding(false)}>Cancel</button>
             </div>
           )}
           {marks.length === 0 && !adding && <p className="muted" style={{ fontSize: 12 }}>No saved signatures yet — add one.</p>}
@@ -674,12 +706,12 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
         </div>
       )}
 
-      <div className="row">
+      <div className="row" style={{ alignItems: "flex-start" }}>
         {pageCount > 1 ? (
           <div className="field grow">
             <label>Pages</label>
-            <label className="row" style={{ gap: 6, marginBottom: 6 }}>
-              <input type="checkbox" style={{ width: "auto" }} checked={allPages} onChange={(e) => setAllPages(e.target.checked)} />
+            <label className="check" style={{ marginBottom: allPages ? 0 : 8 }}>
+              <input type="checkbox" checked={allPages} onChange={(e) => setAllPages(e.target.checked)} />
               All {pageCount} pages{kind === "STAMP" ? " (recommended)" : ""}
             </label>
             {!allPages && <input type="number" min={1} max={pageCount} value={page} onChange={(e) => setPage(Number(e.target.value))} />}
@@ -689,8 +721,8 @@ function ApplyMarkModal({ docId, profileId, pageCount, canSign, canStamp, reques
         )}
         <div className="field grow"><label>Position on page</label>
           {kind === "SIGNATURE" && (
-            <label className="row" style={{ gap: 6, marginBottom: 8, fontWeight: 400 }}>
-              <input type="checkbox" style={{ width: "auto" }} checked={pos === "saved"} onChange={(e) => setPos(e.target.checked ? "saved" : "bottom-right")} />
+            <label className="check" style={{ marginBottom: 8 }}>
+              <input type="checkbox" checked={pos === "saved"} onChange={(e) => setPos(e.target.checked ? "saved" : "bottom-right")} />
               Use my saved position
             </label>
           )}

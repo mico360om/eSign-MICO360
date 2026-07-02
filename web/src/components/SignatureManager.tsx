@@ -86,11 +86,13 @@ export default function SignatureManager() {
       {adding && (
         <div className="card" style={{ padding: 12, background: "var(--bg)" }}>
           <div className="field"><label>Label</label><input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Signature, Initials" /></div>
-          <label style={{ fontWeight: 600, fontSize: 12.5, color: "var(--ink-soft)" }}>Draw your signature</label>
-          <canvas ref={canvasRef} width={440} height={140}
-            style={{ width: "100%", height: 140, border: "1px dashed var(--border)", borderRadius: 8, background: "#fff", touchAction: "none", cursor: "crosshair", marginTop: 6 }}
-            onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
-            onTouchStart={start} onTouchMove={move} onTouchEnd={end} />
+          <div className="field">
+            <label>Draw your signature</label>
+            <canvas ref={canvasRef} width={440} height={140}
+              style={{ width: "100%", height: 140, border: "1px dashed var(--border)", borderRadius: 8, background: "#fff", touchAction: "none", cursor: "crosshair" }}
+              onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
+              onTouchStart={start} onTouchMove={move} onTouchEnd={end} />
+          </div>
           <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: "wrap" }}>
             <button className="btn btn-primary btn-sm" disabled={busy} onClick={saveDrawn}>Save signature</button>
             <button className="btn btn-ghost btn-sm" onClick={clearCanvas}>Clear</button>

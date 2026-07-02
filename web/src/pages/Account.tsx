@@ -48,7 +48,7 @@ export default function Account() {
       <div style={{ display: "flex", flexDirection: "column", gap: 22, maxWidth: 640 }}>
         <div className="card card-pad">
           <h3 style={{ margin: "0 0 16px", fontSize: 15, borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>Profile</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+          <div className="form-grid">
             <div className="field"><label>Full name</label><input value={p.fullName || ""} onChange={(e) => setP({ ...p, fullName: e.target.value })} /></div>
             <div className="field"><label>Email <span className="muted">(managed by admin)</span></label><input value={p.email || ""} disabled /></div>
             <div className="field"><label>Phone</label><input value={p.phone || ""} onChange={(e) => setP({ ...p, phone: e.target.value })} /></div>
@@ -64,7 +64,7 @@ export default function Account() {
         <div className="card card-pad">
           <h3 style={{ margin: "0 0 16px", fontSize: 15, borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>Change Password</h3>
           <div className="field"><label>Current password</label><input type="password" value={cur} onChange={(e) => setCur(e.target.value)} /></div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+          <div className="form-grid">
             <div className="field"><label>New password</label><input type="password" value={nw} onChange={(e) => setNw(e.target.value)} /></div>
             <div className="field"><label>Confirm new password</label><input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} onKeyDown={(e) => e.key === "Enter" && changePassword()} /></div>
           </div>
