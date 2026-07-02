@@ -218,6 +218,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .office-banner-x { background: transparent; border: none; color: #fff; cursor: pointer; font-size: 15px; opacity: 0.85; padding: 2px 6px; }
 .office-banner-x:hover { opacity: 1; }
 
+/* Drag & drop upload overlay (Documents page) */
+.drop-overlay { position: absolute; inset: -8px; z-index: 40; background: rgba(138, 26, 28, 0.06); border: 2px dashed var(--primary); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; }
+.drop-overlay-box { background: var(--surface); border: 1px solid var(--primary-light); border-radius: var(--radius); padding: 20px 28px; font-weight: 700; color: var(--primary); box-shadow: var(--shadow-md); pointer-events: none; }
+
 .toast { position: fixed; bottom: 22px; right: 22px; background: var(--ink); color: #fff; padding: 12px 18px; border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); z-index: 100; max-width: 90vw; }
 .toast.err { background: var(--danger); }
 .checklist { display: flex; flex-wrap: wrap; gap: 8px; }
