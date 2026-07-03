@@ -1,9 +1,0 @@
-{
-  "name": "@esign-mico360/mobile",
-  "version": "1.0.0",
-  "private": true,
-  "description": "eSign MICO360 Android app (native Kotlin WebView client). Build with Gradle — see README.md.",
-  "scripts": {
-    "apk": "echo Use Gradle: gradle assembleDebug (see README.md)"
-  }
-}
