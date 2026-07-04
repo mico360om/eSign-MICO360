@@ -57,7 +57,7 @@ await req("PUT", "/settings", { token: admin, json: { "notifications.email": "fa
 
 // ─── Scheduled reminders ─────────────────────────────────────────
 section("Scheduled approval reminders");
-await req("PUT", "/settings", { token: admin, json: { "notifications.reminderHours": "0" } });
+await req("PUT", "/settings", { token: admin, json: { "reminders.enabled": "true", "reminders.frequencyDays": "1" } });
 const remDoc = await upload("Reminder Test");
 await req("POST", `/documents/${remDoc.id}/submit`, { token: reqTok, json: { signatoryIds: [app1.id] } });
 await sleep(1100);
@@ -65,7 +65,6 @@ const sweep = await req("POST", "/admin/run-reminders", { token: admin });
 ok((sweep.body?.sent ?? 0) >= 1, `reminder sweep sent reminders (${sweep.body?.sent})`);
 const app1Notifs = (await req("GET", "/notifications", { token: app1Tok })).body;
 ok(app1Notifs.notifications.some((n) => n.type === "APPROVAL_REMINDER"), "signatory received APPROVAL_REMINDER");
-await req("PUT", "/settings", { token: admin, json: { "notifications.reminderHours": "24" } });
 
 // ─── Delegation / out-of-office ──────────────────────────────────
 section("Delegation / out-of-office");
