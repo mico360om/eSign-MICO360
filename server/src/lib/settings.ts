@@ -24,7 +24,9 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   "workflow.documentRetentionDays": "0", // 0 = keep forever
   // ── Email Notifications ──────────────────────────────────────────
   "notifications.email": "false",
-  "notifications.reminderHours": "24",
+  // ── Pending-item email reminders ─────────────────────────────────
+  "reminders.enabled": "true",       // master switch for the pending-items reminder digest
+  "reminders.frequencyDays": "1",    // default days between reminders (each user can override)
   "email.provider": "smtp", // "smtp" | "mailjet"
   "smtp.host": "",
   "smtp.port": "587",

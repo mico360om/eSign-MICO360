@@ -18,7 +18,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const u = await prisma.user.findUnique({
       where: { id: req.user!.id },
-      select: { id: true, fullName: true, email: true, phone: true, department: true, designation: true, role: { select: { name: true } } },
+      select: { id: true, fullName: true, email: true, phone: true, department: true, designation: true, reminderFreqDays: true, role: { select: { name: true } } },
     });
     if (!u) throw notFound("User not found");
     ok(res, u);
@@ -35,6 +35,8 @@ router.put(
         phone: z.string().nullable().optional(),
         department: z.string().nullable().optional(),
         designation: z.string().nullable().optional(),
+        // Reminder frequency: null = use system default, 0 = off, N = every N days.
+        reminderFreqDays: z.number().int().min(0).max(365).nullable().optional(),
       })
       .parse(req.body);
     const u = await prisma.user.update({
@@ -44,8 +46,9 @@ router.put(
         ...(body.phone !== undefined ? { phone: body.phone } : {}),
         ...(body.department !== undefined ? { department: body.department } : {}),
         ...(body.designation !== undefined ? { designation: body.designation } : {}),
+        ...(body.reminderFreqDays !== undefined ? { reminderFreqDays: body.reminderFreqDays } : {}),
       },
-      select: { id: true, fullName: true, email: true, phone: true, department: true, designation: true },
+      select: { id: true, fullName: true, email: true, phone: true, department: true, designation: true, reminderFreqDays: true },
     });
     await audit({ actorId: req.user!.id, action: "UPDATE_OWN_PROFILE", entity: "User", entityId: req.user!.id });
     ok(res, u);

@@ -43,6 +43,9 @@ model User {
   department   String?
   designation  String?
   forcePasswordChange Boolean @default(false)
+  // Email reminders for pending items: null = use system default, 0 = off, N = every N days
+  reminderFreqDays Int?
+  lastReminderAt   DateTime? // when the pending-items reminder digest was last emailed
 
   roleId String?
   role   Role?   @relation(fields: [roleId], references: [id])

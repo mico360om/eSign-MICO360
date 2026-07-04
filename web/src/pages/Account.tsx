@@ -22,7 +22,7 @@ export default function Account() {
     if (!p.fullName?.trim()) return toast("Full name is required", true);
     setBusy(true);
     try {
-      await api.put("/account/profile", { fullName: p.fullName, phone: p.phone, department: p.department, designation: p.designation });
+      await api.put("/account/profile", { fullName: p.fullName, phone: p.phone, department: p.department, designation: p.designation, reminderFreqDays: p.reminderFreqDays ?? null });
       await refresh(); // reflect the new name in the header
       toast("Profile updated");
     } catch (e) { toast(apiError(e), true); } finally { setBusy(false); }
@@ -55,6 +55,19 @@ export default function Account() {
             <div className="field"><label>Role <span className="muted">(managed by admin)</span></label><input value={p.role?.name || "—"} disabled /></div>
             <div className="field"><label>Department</label><input value={p.department || ""} placeholder="e.g. Finance" onChange={(e) => setP({ ...p, department: e.target.value })} /></div>
             <div className="field"><label>Designation / Title</label><input value={p.designation || ""} placeholder="e.g. Manager" onChange={(e) => setP({ ...p, designation: e.target.value })} /></div>
+          </div>
+          <div className="field" style={{ maxWidth: 320 }}>
+            <label>Email reminders for pending documents</label>
+            <select value={p.reminderFreqDays == null ? "default" : String(p.reminderFreqDays)}
+              onChange={(e) => setP({ ...p, reminderFreqDays: e.target.value === "default" ? null : Number(e.target.value) })}>
+              <option value="default">Use system default</option>
+              <option value="1">Every day</option>
+              <option value="2">Every 2 days</option>
+              <option value="3">Every 3 days</option>
+              <option value="7">Weekly</option>
+              <option value="0">Off — don't email me</option>
+            </select>
+            <span className="muted" style={{ fontSize: 11, marginTop: 4, display: "block" }}>How often you're emailed a digest of documents awaiting your action.</span>
           </div>
           <button className="btn btn-primary" disabled={busy} onClick={saveProfile}>{busy ? "Saving…" : "Save Profile"}</button>
         </div>

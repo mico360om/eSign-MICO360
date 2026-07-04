@@ -49,7 +49,6 @@ const SETTING_GROUPS: Group[] = [
     title: "Email Notifications", icon: "✉", desc: "Outgoing email for OTP codes and notifications.",
     fields: [
       { key: "notifications.email",        label: "Enable email notifications",       type: "bool" },
-      { key: "notifications.reminderHours", label: "Approval reminder interval (hours)", type: "number" },
       { key: "email.provider",             label: "Email provider",                   type: "select",
         options: [{ value: "smtp", label: "SMTP server" }, { value: "mailjet", label: "Mailjet API" }], hint: "How outgoing emails are sent", wide: true },
       // ── SMTP ──
@@ -64,6 +63,15 @@ const SETTING_GROUPS: Group[] = [
       { key: "mailjet.apiSecret",          label: "Mailjet Secret Key",               type: "password", showIf: (s) => s["email.provider"] === "mailjet" },
       { key: "mailjet.fromEmail",          label: "Sender Email",                     hint: "Must be a verified sender in Mailjet", showIf: (s) => s["email.provider"] === "mailjet" },
       { key: "mailjet.fromName",           label: "Sender Name",                      showIf: (s) => s["email.provider"] === "mailjet" },
+    ],
+  },
+  {
+    title: "Reminders", icon: "🔔", desc: "Email users a digest of every document still awaiting their action. Each user can override the frequency (or turn it off) in My Account.",
+    fields: [
+      { key: "reminders.enabled",         label: "Send pending-item reminder emails", type: "bool", hint: "Also requires email notifications to be enabled above" },
+      { key: "reminders.frequencyDays",   label: "Default reminder frequency",        type: "select",
+        options: [{ value: "1", label: "Every day" }, { value: "2", label: "Every 2 days" }, { value: "3", label: "Every 3 days" }, { value: "7", label: "Weekly" }],
+        hint: "How often, by default, users are reminded", showIf: (s) => s["reminders.enabled"] === "true" },
     ],
   },
   {
