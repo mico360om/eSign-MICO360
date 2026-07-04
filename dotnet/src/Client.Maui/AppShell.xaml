@@ -4,11 +4,36 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:EsignMico360.Client.Maui"
-    Title="EsignMico360.Client.Maui">
+    Title="eSign MICO360"
+    FlyoutBehavior="Flyout">
 
-    <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+    <!-- Branded header at the top of the left menu -->
+    <Shell.FlyoutHeader>
+        <Grid HeightRequest="96" BackgroundColor="#8A1A1C" Padding="18">
+            <VerticalStackLayout VerticalOptions="Center" Spacing="2">
+                <Label Text="eSign MICO360" FontSize="20" FontAttributes="Bold" TextColor="White" />
+                <Label Text="Desktop" FontSize="12" TextColor="#F0C0C0" />
+            </VerticalStackLayout>
+        </Grid>
+    </Shell.FlyoutHeader>
+
+    <!-- Features -->
+    <FlyoutItem Title="Dashboard" Route="dashboard">
+        <ShellContent ContentTemplate="{DataTemplate local:DashboardPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="Companies" Route="companies">
+        <ShellContent ContentTemplate="{DataTemplate local:CompaniesPage}" />
+    </FlyoutItem>
+    <FlyoutItem Title="About" Route="about">
+        <ShellContent ContentTemplate="{DataTemplate local:AboutPage}" />
+    </FlyoutItem>
+
+    <!-- Connection status pinned to the bottom of the left menu -->
+    <Shell.FlyoutFooter>
+        <Grid Padding="16,14" ColumnDefinitions="Auto,*" ColumnSpacing="8" BackgroundColor="#F2F2F2">
+            <Label x:Name="StatusDot" Grid.Column="0" Text="●" FontSize="16" TextColor="#9E9E9E" VerticalOptions="Center" />
+            <Label x:Name="StatusText" Grid.Column="1" Text="Checking server…" FontSize="13" TextColor="#333333" VerticalOptions="Center" />
+        </Grid>
+    </Shell.FlyoutFooter>
 
 </Shell>

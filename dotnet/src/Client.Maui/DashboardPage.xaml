@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="EsignMico360.Client.Maui.DashboardPage"
+             Title="Dashboard">
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="16" MaximumWidthRequest="720" HorizontalOptions="Center">
+
+            <Label Text="Dashboard" FontSize="26" FontAttributes="Bold" TextColor="#8A1A1C" />
+            <Label Text="Connect to the central server and synchronize this PC's offline data." TextColor="Gray" />
+
+            <Border Stroke="#E0E0E0" StrokeThickness="1" Padding="16" StrokeShape="RoundRectangle 10">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Server connection" FontAttributes="Bold" />
+                    <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Server URL" VerticalOptions="Center" />
+                        <Entry Grid.Row="0" Grid.Column="1" x:Name="ServerUrlEntry" />
+                        <Label Grid.Row="1" Grid.Column="0" Text="Username" VerticalOptions="Center" />
+                        <Entry Grid.Row="1" Grid.Column="1" x:Name="UsernameEntry" Text="admin" />
+                        <Label Grid.Row="2" Grid.Column="0" Text="Password" VerticalOptions="Center" />
+                        <Entry Grid.Row="2" Grid.Column="1" x:Name="PasswordEntry" IsPassword="True" Placeholder="Password" />
+                    </Grid>
+                    <Button Text="Sync now" Clicked="OnSyncClicked" BackgroundColor="#8A1A1C" TextColor="White" />
+                    <Label x:Name="StatusLabel" TextColor="Gray" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Stroke="#E0E0E0" StrokeThickness="1" Padding="16" StrokeShape="RoundRectangle 10">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Summary" FontAttributes="Bold" />
+                    <Label x:Name="SummaryLabel" Text="—" TextColor="Gray" />
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

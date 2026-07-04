@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="EsignMico360.Client.Maui.AboutPage"
+             Title="About">
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="12" MaximumWidthRequest="720" HorizontalOptions="Center">
+
+            <Label Text="eSign MICO360 — Desktop" FontSize="26" FontAttributes="Bold" TextColor="#8A1A1C" />
+            <Label x:Name="VersionLabel" TextColor="Gray" />
+            <Label Text="Offline-capable desktop client. Your data lives on this PC and synchronizes with the central server." />
+
+            <Border Stroke="#E0E0E0" StrokeThickness="1" Padding="16" StrokeShape="RoundRectangle 10">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Connected server" FontAttributes="Bold" />
+                    <Label x:Name="ServerLabel" TextColor="Gray" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="© MICO360 Softwares" TextColor="Gray" FontSize="12" Margin="0,8,0,0" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
