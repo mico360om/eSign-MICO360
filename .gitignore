@@ -38,6 +38,8 @@ mobile/android/app/build/
 mobile/android/.gradle/
 *.apk
 *.exe
+# Exception: keep the Windows server installer tracked in the repo
+!Installers/eSignMico360-Server-Setup-1.0.0.exe
 *.dmg
 *.keystore
 *.p12
