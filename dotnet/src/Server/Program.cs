@@ -15,14 +15,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseWindowsService();
 
 // ── Configuration (env/appsettings overridable) ──
-var provider = builder.Configuration["Database:Provider"] ?? "sqlite";              // "sqlite" | "sqlserver"
+var provider = builder.Configuration["Database:Provider"] ?? "sqlite";              // "sqlite" | "postgres" | "sqlserver"
 var conn = builder.Configuration.GetConnectionString("Default");
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "eSignMico360-dev-signing-key-change-in-production!!";
 const string jwtIssuer = "eSignMico360";
 
 builder.Services.AddDbContext<SyncDbContext>(opt =>
 {
-    if (provider.Equals("sqlserver", StringComparison.OrdinalIgnoreCase))
+    if (provider.Equals("postgres", StringComparison.OrdinalIgnoreCase) || provider.Equals("postgresql", StringComparison.OrdinalIgnoreCase))
+    {
+        // Accept UTC DateTimes uniformly across providers (the model uses DateTime.UtcNow).
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+        opt.UseNpgsql(conn ?? "Host=localhost;Port=5432;Database=esignmico360;Username=postgres;Password=postgres");
+    }
+    else if (provider.Equals("sqlserver", StringComparison.OrdinalIgnoreCase))
         opt.UseSqlServer(conn ?? "Server=localhost;Database=EsignMico360;Trusted_Connection=True;TrustServerCertificate=True");
     else
         opt.UseSqlite(conn ?? "Data Source=server.db");
