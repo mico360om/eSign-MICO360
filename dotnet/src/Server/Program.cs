@@ -10,6 +10,10 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Run as a Windows Service when started by the Service Control Manager;
+// a no-op when launched as a normal console app.
+builder.Host.UseWindowsService();
+
 // ── Configuration (env/appsettings overridable) ──
 var provider = builder.Configuration["Database:Provider"] ?? "sqlite";              // "sqlite" | "sqlserver"
 var conn = builder.Configuration.GetConnectionString("Default");
@@ -46,7 +50,11 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
     if (!db.Users.Any())
     {
-        db.Users.Add(new AppUser { Username = "admin", PasswordHash = PasswordHasher.Hash("Admin@123"), Role = "Admin" });
+        // Initial admin can be set from config (Seed:AdminUsername / Seed:AdminPassword)
+        // so deployments don't ship with the well-known default credential.
+        var seedUser = builder.Configuration["Seed:AdminUsername"] ?? "admin";
+        var seedPass = builder.Configuration["Seed:AdminPassword"] ?? "Admin@123";
+        db.Users.Add(new AppUser { Username = seedUser, PasswordHash = PasswordHasher.Hash(seedPass), Role = "Admin" });
         db.SaveChanges();
     }
     if (!db.Companies.Any())
