@@ -10,6 +10,7 @@ public partial class AppShell : Shell
     {
         InitializeComponent();
         StartConnectionMonitor();
+        AutoSync.Start(Dispatcher);   // background auto-sync built into the app
     }
 
     // Poll the server's /api/health every few seconds and reflect reachability

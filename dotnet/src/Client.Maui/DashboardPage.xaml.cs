@@ -1,8 +1,9 @@
 using EsignMico360.Sync;
+using Microsoft.Maui.Storage;
 
 namespace EsignMico360.Client.Maui;
 
-// Server connection + sync. All data ops go through the tested SyncClient engine.
+// Sign in once here; AutoSync then keeps this PC in sync automatically.
 public partial class DashboardPage : ContentPage
 {
     public DashboardPage() => InitializeComponent();
@@ -10,14 +11,26 @@ public partial class DashboardPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        ServerUrlEntry.Text = ServerConfig.CurrentUrl;   // restore saved/default server
+        ServerUrlEntry.Text = ServerConfig.CurrentUrl;
+        UsernameEntry.Text = Preferences.Default.Get(AutoSync.UserKey, "admin");
+        AutoSync.StatusChanged += OnAutoSyncStatus;
+        OnAutoSyncStatus();
         await RefreshSummaryAsync();
     }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        AutoSync.StatusChanged -= OnAutoSyncStatus;
+    }
+
+    private void OnAutoSyncStatus() =>
+        Dispatcher.Dispatch(async () => { AutoSyncLabel.Text = AutoSync.Status; await RefreshSummaryAsync(); });
 
     private string ServerUrl()
     {
         var url = string.IsNullOrWhiteSpace(ServerUrlEntry.Text) ? ServerConfig.DefaultUrl : ServerUrlEntry.Text.Trim();
-        ServerConfig.Save(url);   // share the chosen server with the other pages + the connection monitor
+        ServerConfig.Save(url);   // shared with every page + the connection monitor + auto-sync
         return url;
     }
 
@@ -33,22 +46,32 @@ public partial class DashboardPage : ContentPage
         catch (Exception ex) { SummaryLabel.Text = $"Load error: {ex.Message}"; }
     }
 
-    private async void OnSyncClicked(object? sender, EventArgs e)
+    // Validate the credentials once, then hand them to AutoSync (which stores them
+    // and starts syncing automatically).
+    private async void OnConnectClicked(object? sender, EventArgs e)
     {
+        var user = UsernameEntry.Text?.Trim() ?? "";
+        var pass = PasswordEntry.Text ?? "";
+        if (string.IsNullOrWhiteSpace(user) || string.IsNullOrEmpty(pass))
+        {
+            StatusLabel.Text = "Enter a username and password.";
+            return;
+        }
         try
         {
-            StatusLabel.Text = "Syncing…";
+            StatusLabel.Text = "Connecting…";
             using var api = new HttpSyncApi(ServerUrl());
-            if (!await api.LoginAsync(UsernameEntry.Text?.Trim() ?? "", PasswordEntry.Text ?? ""))
+            if (!await api.LoginAsync(user, pass))
             {
                 StatusLabel.Text = "Login failed — check the server URL and credentials.";
                 return;
             }
-            using var db = LocalStore.NewDb();
-            var r = await new SyncClient(db, api, LocalStore.DeviceId).SyncAsync();
-            StatusLabel.Text = $"Synced ✓  pushed {r.Applied}, conflicts {r.Conflicts}, pulled {r.Pulled}.";
-            await RefreshSummaryAsync();
+            await AutoSync.ConfigureAsync(user, pass);
+            PasswordEntry.Text = string.Empty;   // don't keep it on screen
+            StatusLabel.Text = "Connected — auto-sync is on.";
         }
-        catch (Exception ex) { StatusLabel.Text = $"Sync error: {ex.Message}"; }
+        catch (Exception ex) { StatusLabel.Text = $"Connect error: {ex.Message}"; }
     }
+
+    private async void OnSyncNowClicked(object? sender, EventArgs e) => await AutoSync.RunAsync();
 }

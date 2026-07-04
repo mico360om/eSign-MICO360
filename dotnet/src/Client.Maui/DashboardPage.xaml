@@ -7,7 +7,7 @@
         <VerticalStackLayout Padding="24" Spacing="16" MaximumWidthRequest="720" HorizontalOptions="Center">
 
             <Label Text="Dashboard" FontSize="26" FontAttributes="Bold" TextColor="#8A1A1C" />
-            <Label Text="Connect to the central server and synchronize this PC's offline data." TextColor="Gray" />
+            <Label Text="Sign in once — the app then keeps this PC in sync with the server automatically." TextColor="Gray" />
 
             <Border Stroke="#E0E0E0" StrokeThickness="1" Padding="16" StrokeShape="RoundRectangle 10">
                 <VerticalStackLayout Spacing="10">
@@ -20,8 +20,20 @@
                         <Label Grid.Row="2" Grid.Column="0" Text="Password" VerticalOptions="Center" />
                         <Entry Grid.Row="2" Grid.Column="1" x:Name="PasswordEntry" IsPassword="True" Placeholder="Password" />
                     </Grid>
-                    <Button Text="Sync now" Clicked="OnSyncClicked" BackgroundColor="#8A1A1C" TextColor="White" />
+                    <Button Text="Connect &amp; enable auto-sync" Clicked="OnConnectClicked" BackgroundColor="#8A1A1C" TextColor="White" />
                     <Label x:Name="StatusLabel" TextColor="Gray" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Stroke="#E0E0E0" StrokeThickness="1" Padding="16" StrokeShape="RoundRectangle 10">
+                <VerticalStackLayout Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="Auto-sync" FontAttributes="Bold" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="Sync now" Clicked="OnSyncNowClicked" Padding="14,4"
+                                BackgroundColor="#EFE3E3" TextColor="#8A1A1C" />
+                    </Grid>
+                    <Label x:Name="AutoSyncLabel" Text="…" TextColor="Gray" />
+                    <Label Text="Runs on launch, every minute, and after you add a company." TextColor="#9E9E9E" FontSize="12" />
                 </VerticalStackLayout>
             </Border>
 
