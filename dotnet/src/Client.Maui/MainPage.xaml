@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:entities="clr-namespace:EsignMico360.Sync.Entities;assembly=EsignMico360.Sync"
+             x:Class="EsignMico360.Client.Maui.MainPage"
+             Title="eSign MICO360 — Desktop">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="14" MaximumWidthRequest="680" HorizontalOptions="Center">
+
+            <Label Text="eSign MICO360 — Desktop" FontSize="26" FontAttributes="Bold" />
+            <Label Text="Offline-capable client. Your data lives on this PC and synchronizes with the central server."
+                   TextColor="Gray" />
+
+            <Grid ColumnDefinitions="90,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                <Label Grid.Row="0" Grid.Column="0" Text="Server URL" VerticalOptions="Center" />
+                <Entry Grid.Row="0" Grid.Column="1" x:Name="ServerUrlEntry" Text="http://localhost:5080" />
+                <Label Grid.Row="1" Grid.Column="0" Text="Username" VerticalOptions="Center" />
+                <Entry Grid.Row="1" Grid.Column="1" x:Name="UsernameEntry" Text="admin" />
+                <Label Grid.Row="2" Grid.Column="0" Text="Password" VerticalOptions="Center" />
+                <Entry Grid.Row="2" Grid.Column="1" x:Name="PasswordEntry" Text="Admin@123" IsPassword="True" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Entry Grid.Column="0" x:Name="NewNameEntry" Placeholder="New company name" />
+                <Button Grid.Column="1" Text="Add (offline)" Clicked="OnAddClicked" />
+            </Grid>
+
+            <Button Text="Sync now" Clicked="OnSyncClicked" />
+            <Label x:Name="StatusLabel" TextColor="Gray" />
+
+            <Label Text="Companies (local copy)" FontAttributes="Bold" Margin="0,8,0,0" />
+            <CollectionView x:Name="CompaniesView">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="entities:Company">
+                        <Grid Padding="4,6" ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0" Text="{Binding Name}" />
+                            <Label Grid.Column="1" Text="{Binding Version, StringFormat='v{0}'}" TextColor="Gray" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

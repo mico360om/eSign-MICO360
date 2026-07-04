@@ -1,0 +1,16 @@
+# .NET build output — never commit
+bin/
+obj/
+publish/
+[Dd]ebug/
+[Rr]elease/
+
+# IDE / user files
+.vs/
+*.user
+*.suo
+
+# local runtime databases created by the client at runtime
+*.db
+*.db-shm
+*.db-wal
