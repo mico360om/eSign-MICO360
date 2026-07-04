@@ -13,6 +13,17 @@ public sealed class HttpSyncApi : ISyncApi, IDisposable
     public HttpSyncApi(string baseUrl)
         => _http = new HttpClient { BaseAddress = new Uri(baseUrl), Timeout = TimeSpan.FromSeconds(30) };
 
+    /// <summary>Lightweight reachability check — true if the server answers /api/health.</summary>
+    public async Task<bool> PingAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var resp = await _http.GetAsync("/api/health", ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
     public async Task<bool> LoginAsync(string username, string password)
     {
         var resp = await _http.PostAsJsonAsync("/api/auth/login", new { Username = username, Password = password });

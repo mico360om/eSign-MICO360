@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:entities="clr-namespace:EsignMico360.Sync.Entities;assembly=EsignMico360.Sync"
+             x:Class="EsignMico360.Client.Maui.CompaniesPage"
+             Title="Companies">
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="16" MaximumWidthRequest="720" HorizontalOptions="Center">
+
+            <Label Text="Companies" FontSize="26" FontAttributes="Bold" TextColor="#8A1A1C" />
+            <Label Text="Add companies offline; they upload to the server on the next sync." TextColor="Gray" />
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Entry Grid.Column="0" x:Name="NewNameEntry" Placeholder="New company name" />
+                <Button Grid.Column="1" Text="Add (offline)" Clicked="OnAddClicked" BackgroundColor="#8A1A1C" TextColor="White" />
+            </Grid>
+            <Label x:Name="StatusLabel" TextColor="Gray" />
+
+            <Label Text="Local companies" FontAttributes="Bold" Margin="0,8,0,0" />
+            <CollectionView x:Name="CompaniesView">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="entities:Company">
+                        <Grid Padding="4,8" ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0" Text="{Binding Name}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding Version, StringFormat='v{0}'}" TextColor="Gray" VerticalOptions="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
