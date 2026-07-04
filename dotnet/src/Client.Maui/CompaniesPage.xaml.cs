@@ -34,8 +34,10 @@ public partial class CompaniesPage : ContentPage
             using (var api = new HttpSyncApi(ServerConfig.CurrentUrl))
                 await new SyncClient(db, api, LocalStore.DeviceId).AddCompanyAsync(name);
             NewNameEntry.Text = string.Empty;
-            StatusLabel.Text = $"Added '{name}' locally (queued for sync).";
+            StatusLabel.Text = $"Added '{name}' — syncing…";
             await RefreshListAsync();
+            _ = AutoSync.RunAsync();   // push the new company right away
+
         }
         catch (Exception ex) { StatusLabel.Text = $"Add error: {ex.Message}"; }
     }
