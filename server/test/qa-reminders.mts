@@ -25,6 +25,8 @@ async function main() {
   ok(dg.html.indexOf("Late Contract") < dg.html.indexOf("Normal Doc"), "overdue/urgent item is sorted first");
 
   // Reminders on, daily default, email delivery OFF → sendEmail captures to the outbox.
+  // Remember the real value so a configured provider (e.g. Mailjet) is restored after.
+  const prevEmail = (await prisma.systemSetting.findUnique({ where: { key: "notifications.email" } }))?.value ?? "false";
   await setSetting("reminders.enabled", "true");
   await setSetting("reminders.frequencyDays", "1");
   await setSetting("notifications.email", "false");
@@ -84,6 +86,7 @@ async function main() {
   await prisma.user.delete({ where: { id: user.id } });
   await prisma.profile.delete({ where: { id: profile.id } });
   await setSetting("reminders.enabled", "true"); // restore default
+  await setSetting("notifications.email", prevEmail); // restore real email delivery (e.g. Mailjet)
 
   console.log(`\n${fail === 0 ? "✅ ALL PASS" : "❌ FAILURES"} — ${pass} passed, ${fail} failed\n`);
   await prisma.$disconnect();
