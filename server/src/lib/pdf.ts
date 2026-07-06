@@ -170,9 +170,7 @@ function findSoffice(): string | null {
           "C:/Program Files/LibreOffice/program/soffice.exe",
           "C:/Program Files (x86)/LibreOffice/program/soffice.exe",
         ]
-      : process.platform === "darwin"
-        ? ["/Applications/LibreOffice.app/Contents/MacOS/soffice"]
-        : ["/usr/bin/soffice", "/usr/local/bin/soffice", "/opt/libreoffice/program/soffice", "/snap/bin/libreoffice"];
+      : ["/usr/bin/soffice", "/usr/local/bin/soffice", "/opt/libreoffice/program/soffice", "/snap/bin/libreoffice"];
   for (const c of candidates) if (fs.existsSync(c)) return c;
   return process.platform === "win32" ? "soffice.exe" : "soffice"; // last resort: rely on PATH
 }

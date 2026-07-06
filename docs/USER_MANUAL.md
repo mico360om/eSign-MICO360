@@ -1,6 +1,6 @@
 # eSign MICO360 — User Manual
 
-Applies to both the **Windows** and **macOS** desktop apps and the **web** portal
+Applies to the **Windows** desktop app and the **web** portal
 (the UI is identical).
 
 ## 1. Signing in

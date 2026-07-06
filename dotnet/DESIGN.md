@@ -14,7 +14,7 @@ central server (change tracking, conflict handling, retry, no data loss/dup).
 
 ## Chosen stack (per decisions)
 - **Server (EXE #1):** ASP.NET Core Web API + EF Core, **SQL Server** master DB. Publishes as a self-contained single-file `.exe` (console or Windows Service).
-- **Client (EXE #2):** **.NET MAUI** (Windows + macOS) with a **local SQLite** copy (EF Core) for offline use. Self-contained installer.
+- **Client (EXE #2):** **.NET MAUI** (Windows) with a **local SQLite** copy (EF Core) for offline use. Self-contained installer.
 - **Sync:** shared engine used by both sides (`EsignMico360.Sync`).
 
 ## Solution layout (`/dotnet`)
