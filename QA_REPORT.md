@@ -68,7 +68,7 @@ Verified by `npm run -w server qa:security` (16 checks):
 - **Hash-chained audit log.** Every entry stores `hash = SHA-256(prevHash + fields)`. `GET /api/audit/verify` walks the chain and reports the first broken link. The Audit page shows a green "chain verified" / red "BROKEN" banner.
 - **Brute-force lockout.** Per-IP login rate-limit (`express-rate-limit`) **plus** per-account lockout after N failed attempts (configurable; default 5 → 15-min lock). Proven: 5 wrong attempts lock the account so even the correct password is refused; an admin password reset clears it.
 - **Server-side password policy.** `password.minLength` + `password.requireNumber` enforced on user create, admin reset, and self-service change (previously the settings existed but weren't applied).
-- **Office→PDF.** Robust LibreOffice (`soffice`) detection — `SOFFICE_PATH` env, common Windows/macOS/Linux install paths, then PATH; falls back to a cover PDF (original always preserved) when not installed.
+- **Office→PDF.** Robust LibreOffice (`soffice`) detection — `SOFFICE_PATH` env, common Windows/Linux install paths, then PATH; falls back to a cover PDF (original always preserved) when not installed.
 
 All six were re-verified **inside the packaged desktop bundle** (esbuild-bundled `@signpdf`/`node-forge`, all DB migrations applied on a fresh SQLite file).
 

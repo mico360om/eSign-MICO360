@@ -51,7 +51,6 @@ dotnet publish src/Client -c Release -r win-x64 --self-contained true \
 # -> publish/server/EsignMico360.Server.exe   (verified running)
 # -> publish/client/EsignMico360.Client.exe   (verified running)
 ```
-For macOS use `-r osx-x64` / `-r osx-arm64`.
 
 ## 5. The MAUI desktop client (built — `src/Client.Maui`)
 Implemented as a thin GUI over the **tested** `SyncClient` (server URL/login, add
@@ -62,8 +61,7 @@ dotnet build src/Client.Maui -f net9.0-windows10.0.19041.0   # ✅ builds clean
 ```
 `MainPage.xaml.cs` opens a local SQLite copy under `FileSystem.AppDataDirectory`,
 uses `HttpSyncApi` + `SyncClient` for offline add + conflict-safe, retrying sync —
-the exact engine covered by the tests. To also target macOS, install the
-`maccatalyst` workload and add `net9.0-maccatalyst` back to `<TargetFrameworks>`.
+the exact engine covered by the tests.
 
 > The GUI **compiles** here; it can't be *interactively clicked* in a headless
 > environment, but its data/sync behavior is the tested `SyncClient`.

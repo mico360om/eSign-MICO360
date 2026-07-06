@@ -11,6 +11,18 @@ export default defineConfig({
   // Dropbox locks node_modules/.vite/deps during sync, which breaks optimization
   // (EBUSY on rename) and leaves the app blank in dev.
   cacheDir: path.join(os.tmpdir(), "mico360-vite-cache"),
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the heavyweight vendors out of the app chunk so the first load
+        // fetches less and vendor code stays browser-cached across releases.
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          pdfjs: ["pdfjs-dist"],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

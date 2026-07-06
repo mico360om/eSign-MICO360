@@ -9,10 +9,8 @@
 
 generator client {
   provider = "prisma-client-js"
-  // Ship engines for every desktop target so one build runs on Windows,
-  // Intel macs (darwin) and Apple Silicon (darwin-arm64). prepare.js prunes
-  // the engines that don't match the platform being packaged.
-  binaryTargets = ["native", "darwin", "darwin-arm64"]
+  // Windows-only desktop target ("native" resolves to the build machine).
+  binaryTargets = ["native"]
 }
 
 datasource db {

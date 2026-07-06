@@ -23,9 +23,6 @@ async function main() {
     await pngToIco([await png(256), await png(128), await png(64), await png(48), await png(32), await png(16)]),
   );
 
-  // macOS app icon source (electron-builder converts this 1024² PNG to .icns)
-  fs.writeFileSync(path.join(ROOT, "desktop/build/icon.png"), await png(1024));
-
   // Web favicon (+ keep a PNG for high-res)
   fs.writeFileSync(path.join(ROOT, "web/public/favicon.ico"), await pngToIco([await png(64), await png(48), await png(32), await png(16)]));
   fs.writeFileSync(path.join(ROOT, "web/public/app-icon.png"), await png(256));

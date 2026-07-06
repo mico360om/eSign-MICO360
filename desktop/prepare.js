@@ -83,14 +83,11 @@ for (const dep of ["@prisma/client", ".prisma"]) {
   fs.cpSync(src, path.join(runtime, dep), { recursive: true });
 }
 
-// The schema generates engines for every desktop target (windows + both mac
-// arches). Keep only the engine(s) for the platform we're packaging on, so a
-// Windows installer doesn't ship macOS engines (and vice-versa). On macOS we
-// keep BOTH darwin + darwin-arm64 so a single universal build runs on Intel and
-// Apple Silicon; main.js picks the right one at runtime.
+// The schema may generate engines for multiple targets. Keep only the Windows
+// engine so the installer doesn't ship engines for other platforms.
 try {
   const clientDir = path.join(runtime, ".prisma", "client");
-  const keepToken = process.platform === "darwin" ? "darwin" : process.platform === "win32" ? "windows" : null;
+  const keepToken = process.platform === "win32" ? "windows" : null;
   if (keepToken && exists(clientDir)) {
     for (const f of fs.readdirSync(clientDir)) {
       const isEngine = /query_engine/i.test(f) && /\.node$/i.test(f);

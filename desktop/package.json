@@ -9,7 +9,6 @@
     "prepare:vendor": "node prepare.js",
     "dev": "node prepare.js && electron .",
     "dist": "node prepare.js && electron-builder --win nsis",
-    "dist:mac": "node prepare.js && electron-builder --mac dmg zip --universal",
     "pack": "node prepare.js && electron-builder --win --dir"
   },
   "build": {
@@ -67,22 +66,6 @@
       "shortcutName": "eSign MICO360",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico"
-    },
-    "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ],
-      "category": "public.app-category.business",
-      "icon": "build/icon.png",
-      "artifactName": "${productName}-${version}-${arch}.${ext}",
-      "darkModeSupport": false,
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false,
-      "x64ArchFiles": "*.node"
-    },
-    "dmg": {
-      "title": "eSign MICO360 ${version}"
     }
   },
   "devDependencies": {

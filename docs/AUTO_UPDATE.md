@@ -8,7 +8,7 @@ The desktop app updates itself from **GitHub Releases** of
 - **Manually** via **Help & Legal → About Us → Software Updates → Check for Updates**.
 - The panel shows **current version, new version, changelog and download size**.
 - Download shows a **progress bar**. electron-updater **verifies the package SHA-512**
-  (from `latest.yml` / `latest-mac.yml`) before it is ever applied.
+  (from `latest.yml`) before it is ever applied.
 - The update installs **on restart** (`Restart & Install`). User data, settings,
   profiles, the SQLite database and all records are untouched.
 - **Safety / rollback:** the running app is only replaced *after* a fully downloaded,
@@ -22,11 +22,10 @@ The desktop app updates itself from **GitHub Releases** of
 - **Optional vs forced:** add the token `[forced]` anywhere in a GitHub release's
   notes to make that update mandatory (auto-downloads and is marked *Required*).
 
-## Publishing an update — both platforms (recommended)
+## Publishing an update — via CI (recommended)
 
 A GitHub Actions workflow (`.github/workflows/release.yml`) builds and publishes
-**Windows and macOS together** for every version tag, so both platforms always
-get the update:
+the Windows app for every version tag:
 
 ```bash
 # 1) Bump version in desktop/package.json (and web APP_INFO for the About page)
@@ -36,20 +35,15 @@ git tag v1.0.3
 git push origin main --tags
 ```
 
-The workflow runs on `windows-latest` + `macos-latest` and uploads the `.exe`
-+ `latest.yml` and the `.dmg`/`.zip` + `latest-mac.yml` to the release for that
-tag. Windows clients read `latest.yml`; macOS clients read `latest-mac.yml`.
-No Mac hardware needed locally.
+The workflow runs on `windows-latest` and uploads the `.exe` + `latest.yml` to
+the release for that tag.
 
-## Publishing manually (single platform)
+## Publishing manually
 1. Bump `version` in `desktop/package.json` (e.g. `1.0.1`).
-2. Build the installers:
-   - Windows: `npm run -w desktop dist`
-   - macOS: `npm run -w desktop dist:mac`
+2. Build the installer: `npm run -w desktop dist`
 3. Create a **GitHub Release** tagged `v1.0.1` and upload the artifacts from
-   `desktop/release/` — **including** the generated `latest.yml` (Windows) and
-   `latest-mac.yml` (macOS) and the `.blockmap` files. These manifests are what
-   the updater reads.
+   `desktop/release/` — **including** the generated `latest.yml` and the
+   `.blockmap` files. These manifests are what the updater reads.
 4. To publish directly from electron-builder instead, set a `GH_TOKEN` env var
    with `repo` scope and run the dist command with `--publish always`.
 

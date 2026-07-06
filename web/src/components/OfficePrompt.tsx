@@ -6,13 +6,12 @@ const office: any = (typeof window !== "undefined" && (window as any).mico360?.o
 // Manual install command per platform, shown when LibreOffice isn't installed.
 const MANUAL: Record<string, { label: string; cmd: string }> = {
   win32: { label: "Windows — run in Command Prompt / PowerShell:", cmd: "winget install -e --id TheDocumentFoundation.LibreOffice" },
-  darwin: { label: "macOS — run in Terminal (requires Homebrew):", cmd: "brew install --cask libreoffice" },
   linux: { label: "Linux — run in your terminal:", cmd: "sudo apt install libreoffice" },
 };
 
 // Banner shown (desktop) ONLY when LibreOffice isn't installed. Exact Word/Excel/
 // PowerPoint → PDF conversion needs it; the button runs a one-click install
-// (winget on Windows, Homebrew on macOS) and the manual command is shown too.
+// (winget on Windows) and the manual command is shown too.
 export default function OfficePrompt() {
   const [needed, setNeeded] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -54,9 +53,7 @@ export default function OfficePrompt() {
 
   const msg = {
     prompt: <>📄 For <strong>exact Word/Excel/PowerPoint</strong> formatting, install <strong>LibreOffice</strong> (free, one-time). Without it, Office files use simplified formatting.</>,
-    installing: platform === "darwin"
-      ? <>🛠 A Terminal window is installing <strong>LibreOffice</strong> via Homebrew. When it finishes, restart the app and re-upload your document.</>
-      : <>🛠 Approve the Windows prompt — a PowerShell window is installing <strong>LibreOffice</strong>. When it finishes, restart the app and re-upload your document.</>,
+    installing: <>🛠 Approve the Windows prompt — a PowerShell window is installing <strong>LibreOffice</strong>. When it finishes, restart the app and re-upload your document.</>,
     browser: <>🌐 Opened the LibreOffice download page. Install it, then restart the app and re-upload your document.</>,
     error: <>⚠ Couldn't start the installer automatically. Use the manual command below, or download from <a href="https://www.libreoffice.org/download" target="_blank" rel="noreferrer" style={{ color: "#fff", textDecoration: "underline" }}>libreoffice.org</a>.</>,
   }[phase];
