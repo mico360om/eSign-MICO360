@@ -59,6 +59,7 @@ model User {
   auditLogs     AuditLog[]
   stampUsages   StampUsage[]
   savedMarks    SavedMark[]
+  comments      DocumentComment[]      @relation("CommentAuthor")
 }
 
 // A named kind of approval (e.g. Approved, Reviewed, Verified). Requesters pick
@@ -260,6 +261,22 @@ model Document {
   steps      ApprovalStep[]
   placements Placement[]
   events     DocumentEvent[]
+  comments   DocumentComment[]
+}
+
+// Discussion thread on a document — separate from ApprovalStep.comment (the
+// remark left with an approve/reject decision) and DocumentEvent (system history).
+model DocumentComment {
+  id         String   @id @default(cuid())
+  documentId String
+  authorId   String
+  body       String
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  author   User     @relation("CommentAuthor", fields: [authorId], references: [id])
+
+  @@index([documentId])
 }
 
 model ApprovalStep {
