@@ -43,10 +43,22 @@ export default function DocumentDetail() {
   const [thread, setThread] = useState<any[]>([]);
   const [newNote, setNewNote] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
+  const [allTags, setAllTags] = useState<any[]>([]);
   const nav = useNavigate();
 
   const loadComments = () =>
     unwrap<any[]>(api.get(`/documents/${id}/comments`)).then(setThread).catch(() => {});
+  const loadTags = () => unwrap<any[]>(api.get("/tags")).then(setAllTags).catch(() => {});
+
+  const addTag = async (tagId: string) => {
+    if (!tagId) return;
+    try { await unwrap(api.post(`/documents/${id}/tags`, { tagId })); load(); }
+    catch (e) { toast(apiError(e), true); }
+  };
+  const removeTag = async (tagId: string) => {
+    try { await unwrap(api.delete(`/documents/${id}/tags/${tagId}`)); load(); }
+    catch (e) { toast(apiError(e), true); }
+  };
 
   const load = async () => {
     const d = await unwrap(api.get(`/documents/${id}`));
@@ -76,7 +88,7 @@ export default function DocumentDetail() {
     unwrap(api.get(`/documents/${id}/verify`)).then(setVerify).catch(() => setVerify(null));
     loadComments();
   };
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); loadTags(); }, [id]);
   useEffect(() => () => { setOverlays((prev) => { prev.forEach((o) => URL.revokeObjectURL(o.imageUrl)); return []; }); }, []);
 
   if (!doc) return <Spinner />;
@@ -178,6 +190,26 @@ export default function DocumentDetail() {
 
         {/* Side panel */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Tags / folders */}
+          <div className="card card-pad">
+            <div className="between" style={{ marginBottom: 8 }}><h3 style={{ margin: 0 }}>Tags</h3></div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              {(doc.tags || []).map((dt: any) => (
+                <span key={dt.tag.id} className="badge" style={{ background: dt.tag.color, color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  {dt.tag.name}
+                  <span style={{ cursor: "pointer", opacity: 0.8 }} title="Remove tag" onClick={() => removeTag(dt.tag.id)}>✕</span>
+                </span>
+              ))}
+              {(doc.tags || []).length === 0 && <span className="muted" style={{ fontSize: 12 }}>No tags.</span>}
+              <select value="" onChange={(e) => { addTag(e.target.value); e.target.value = ""; }} style={{ width: "auto", minWidth: 120, fontSize: 12, padding: "2px 6px" }}>
+                <option value="">+ Add tag…</option>
+                {allTags.filter((t) => !(doc.tags || []).some((dt: any) => dt.tag.id === t.id)).map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {/* Actions */}
           <div className="card card-pad">
             <h3>Actions</h3>
