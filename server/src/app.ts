@@ -16,6 +16,8 @@ import roleRoutes from "./routes/roles";
 import signatureGroupRoutes from "./routes/signatureGroups";
 import stampRoutes from "./routes/stamps";
 import documentRoutes from "./routes/documents";
+import tagRoutes from "./routes/tags";
+import savedFilterRoutes from "./routes/savedFilters";
 import notificationRoutes from "./routes/notifications";
 import dashboardRoutes from "./routes/dashboard";
 import reportRoutes from "./routes/reports";
@@ -70,6 +72,8 @@ export function createApp() {
   app.use("/api/signature-groups", signatureGroupRoutes);
   app.use("/api/stamps", stampRoutes);
   app.use("/api/documents", documentRoutes);
+  app.use("/api/tags", tagRoutes);
+  app.use("/api/saved-filters", savedFilterRoutes);
   app.use("/api/notifications", notificationRoutes);
   app.use("/api/dashboard", dashboardRoutes);
   app.use("/api/reports", reportRoutes);

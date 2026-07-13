@@ -30,6 +30,7 @@ const docInclude = {
       approvalType: { select: { id: true, name: true } },
     },
   },
+  tags: { include: { tag: { select: { id: true, name: true, color: true } } } },
 } as const;
 
 /** Documents visible to the caller: within their profiles, OR uploaded by them, OR awaiting their approval. */
@@ -68,6 +69,7 @@ router.get(
     const profileId = (req.query.profileId as string)?.trim();
     const uploadedById = (req.query.uploadedById as string)?.trim();
     const signatoryId = (req.query.signatoryId as string)?.trim();
+    const tagId = (req.query.tagId as string)?.trim();
     const dateFrom = (req.query.dateFrom as string)?.trim();
     const dateTo = (req.query.dateTo as string)?.trim();
 
@@ -77,6 +79,7 @@ router.get(
     if (profileId) filters.push({ profileId });
     if (uploadedById) filters.push({ uploadedById });
     if (signatoryId) filters.push({ steps: { some: { signatoryId } } });
+    if (tagId) filters.push({ tags: { some: { tagId } } });
     if (dateFrom) filters.push({ createdAt: { gte: new Date(dateFrom) } });
     if (dateTo) filters.push({ createdAt: { lte: new Date(dateTo + "T23:59:59Z") } });
     if (q) filters.push({ OR: [{ title: { contains: q } }, { description: { contains: q } }] });
@@ -208,6 +211,34 @@ router.delete(
     await prisma.documentComment.delete({ where: { id: comment.id } });
     await audit({ actorId: req.user!.id, action: "DOCUMENT_COMMENT_DELETED", entity: "Document", entityId: req.params.id });
     ok(res, { deleted: true });
+  }),
+);
+
+// ── Tags on a document (folders/labels) ────────────────────────────────────
+router.post(
+  "/:id/tags",
+  asyncHandler(async (req, res) => {
+    const doc = await fetchVisible(req.user!.id, req.params.id, hasPermission(req, "MANAGE_PROFILES"));
+    const { tagId } = z.object({ tagId: z.string().min(1) }).parse(req.body);
+    const tag = await prisma.tag.findUnique({ where: { id: tagId } });
+    if (!tag) throw notFound("Tag not found");
+    await prisma.documentTag.upsert({
+      where: { documentId_tagId: { documentId: doc.id, tagId } },
+      update: {},
+      create: { documentId: doc.id, tagId },
+    });
+    await audit({ actorId: req.user!.id, action: "DOCUMENT_TAGGED", entity: "Document", entityId: doc.id, detail: tag.name });
+    const tags = await prisma.documentTag.findMany({ where: { documentId: doc.id }, include: { tag: true } });
+    ok(res, tags.map((dt) => dt.tag));
+  }),
+);
+
+router.delete(
+  "/:id/tags/:tagId",
+  asyncHandler(async (req, res) => {
+    const doc = await fetchVisible(req.user!.id, req.params.id, hasPermission(req, "MANAGE_PROFILES"));
+    await prisma.documentTag.deleteMany({ where: { documentId: doc.id, tagId: req.params.tagId } });
+    ok(res, { removed: true });
   }),
 );
 

@@ -60,6 +60,7 @@ model User {
   stampUsages   StampUsage[]
   savedMarks    SavedMark[]
   comments      DocumentComment[]      @relation("CommentAuthor")
+  savedFilters  SavedFilter[]          @relation("SavedFilters")
 }
 
 // A named kind of approval (e.g. Approved, Reviewed, Verified). Requesters pick
@@ -262,6 +263,42 @@ model Document {
   placements Placement[]
   events     DocumentEvent[]
   comments   DocumentComment[]
+  tags       DocumentTag[]
+}
+
+// Tags double as folders/labels — a document can carry several; the Documents
+// list filters by tag ("folder view").
+model Tag {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  color     String        @default("#8A1A1C")
+  createdAt DateTime      @default(now())
+  documents DocumentTag[]
+}
+
+model DocumentTag {
+  documentId String
+  tagId      String
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, tagId])
+  @@index([tagId])
+}
+
+// A named, reusable set of Documents-list filter params, private to each user.
+model SavedFilter {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  query     String // JSON object of filter params (status, priority, tagId, dates…)
+  createdAt DateTime @default(now())
+
+  user User @relation("SavedFilters", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // Discussion thread on a document — separate from ApprovalStep.comment (the

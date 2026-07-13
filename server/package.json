@@ -18,6 +18,7 @@
     "qa:marks": "node test/qa-marks.mjs",
     "qa:types": "node test/qa-approval-types.mjs",
     "qa:comments": "node test/qa-comments.mjs",
+    "qa:tags": "node test/qa-tags-filters.mjs",
     "qa:reminders": "tsx test/qa-reminders.mts",
     "qa:audit": "tsx test/qa-audit-chain.mts",
     "audit:reseal": "tsx scripts/reseal-audit.mts",

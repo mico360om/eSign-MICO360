@@ -23,8 +23,11 @@ export default function Documents() {
   const [status, setStatus] = useState(searchParams.get("status") || "");
   const [priority, setPriority] = useState("");
   const [profileFilter, setProfileFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [tags, setTags] = useState<any[]>([]);
+  const [savedFilters, setSavedFilters] = useState<any[]>([]);
   const [showUpload, setShowUpload] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [allProfiles, setAllProfiles] = useState<any[]>([]);
@@ -42,23 +45,59 @@ export default function Documents() {
     if (status) params.status = status;
     if (priority) params.priority = priority;
     if (profileFilter) params.profileId = profileFilter;
+    if (tagFilter) params.tagId = tagFilter;
     if (dateFrom) params.dateFrom = dateFrom;
     if (dateTo) params.dateTo = dateTo;
     unwrap(api.get("/documents", { params })).then(setDocs).catch((e) => { setErr(apiError(e)); setDocs([]); });
   };
 
+  const loadTags = () => unwrap<any[]>(api.get("/tags")).then(setTags).catch(() => {});
+  const loadSaved = () => unwrap<any[]>(api.get("/saved-filters")).then(setSavedFilters).catch(() => {});
+
   useEffect(() => {
     load();
+    loadTags();
+    loadSaved();
     if (can("MANAGE_PROFILES")) unwrap(api.get("/profiles")).then(setAllProfiles).catch((e) => toast(apiError(e), true));
   }, []);
 
   // Sync the status filter when navigated via the sidebar sub-menu (?status=...).
   useEffect(() => { setStatus(searchParams.get("status") || ""); }, [searchParams]);
 
-  useEffect(() => { load(); }, [status, priority, profileFilter, dateFrom, dateTo]);
+  useEffect(() => { load(); }, [status, priority, profileFilter, tagFilter, dateFrom, dateTo]);
 
   const profileOpts = Array.from(new Map((docs ?? []).map((d) => [d.profile?.id, d.profile?.name])).entries()).filter(([id]) => id);
-  const activeFilters = [status, priority, profileFilter, dateFrom, dateTo].filter(Boolean).length;
+  const activeFilters = [status, priority, profileFilter, tagFilter, dateFrom, dateTo].filter(Boolean).length;
+
+  // Saved views: capture / apply the current filter set (server stores JSON).
+  const currentQuery = () => {
+    const q: Record<string, string> = {};
+    if (status) q.status = status; if (priority) q.priority = priority;
+    if (profileFilter) q.profileId = profileFilter; if (tagFilter) q.tagId = tagFilter;
+    if (dateFrom) q.dateFrom = dateFrom; if (dateTo) q.dateTo = dateTo;
+    return q;
+  };
+  const applyQuery = (q: Record<string, string>) => {
+    setStatus(q.status || ""); setPriority(q.priority || "");
+    setProfileFilter(q.profileId || ""); setTagFilter(q.tagId || "");
+    setDateFrom(q.dateFrom || ""); setDateTo(q.dateTo || "");
+  };
+  const saveCurrentView = async () => {
+    const name = window.prompt("Save current filters as:");
+    if (!name?.trim()) return;
+    try { await unwrap(api.post("/saved-filters", { name: name.trim(), query: currentQuery() })); toast("View saved"); loadSaved(); }
+    catch (e) { toast(apiError(e), true); }
+  };
+  const deleteView = async (id: string) => {
+    try { await unwrap(api.delete(`/saved-filters/${id}`)); toast("View removed"); loadSaved(); }
+    catch (e) { toast(apiError(e), true); }
+  };
+  const addTagDefinition = async () => {
+    const name = window.prompt("New tag name:");
+    if (!name?.trim()) return;
+    try { await unwrap(api.post("/tags", { name: name.trim() })); toast("Tag created"); loadTags(); }
+    catch (e) { toast(apiError(e), true); }
+  };
 
   // Drag & drop a file anywhere on the page to start an upload.
   const canUpload = can("UPLOAD");
@@ -87,7 +126,7 @@ export default function Documents() {
       load();
     } catch (e) { toast(apiError(e), true); } finally { setBulkBusy(false); }
   };
-  const clearFilters = () => { setStatus(""); setPriority(""); setProfileFilter(""); setDateFrom(""); setDateTo(""); };
+  const clearFilters = () => { setStatus(""); setPriority(""); setProfileFilter(""); setTagFilter(""); setDateFrom(""); setDateTo(""); };
 
   return (
     <div onDragOver={onPageDragOver} onDragLeave={onPageDragLeave} onDrop={onPageDrop} style={{ position: "relative", minHeight: "60vh" }}>
@@ -109,9 +148,27 @@ export default function Documents() {
         </div>
       </div>
 
+      {/* Saved views (filter presets) */}
+      {(savedFilters.length > 0 || activeFilters > 0) && (
+        <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
+          {savedFilters.length > 0 && <span className="muted" style={{ fontSize: 12.5 }}>Saved views:</span>}
+          {savedFilters.map((f) => (
+            <span key={f.id} className="badge" style={{ background: "var(--primary-soft)", color: "var(--primary)", display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              <span onClick={() => applyQuery(f.query)} title="Apply this view">{f.name}</span>
+              <span onClick={() => deleteView(f.id)} title="Remove saved view" style={{ opacity: 0.7 }}>✕</span>
+            </span>
+          ))}
+          {activeFilters > 0 && <button className="btn btn-ghost btn-sm" onClick={saveCurrentView}>💾 Save current view</button>}
+        </div>
+      )}
+
       {/* Advanced filter panel */}
       {showFilters && (
         <div className="card card-pad" style={{ marginBottom: 18 }}>
+          <div className="between" style={{ marginBottom: 12 }}>
+            <strong style={{ fontSize: 13 }}>Filters</strong>
+            <button className="btn btn-ghost btn-sm" onClick={addTagDefinition}>+ New tag</button>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
             <div className="field" style={{ margin: 0 }}>
               <label>Status</label>
@@ -136,6 +193,13 @@ export default function Documents() {
               </select>
             </div>
             <div className="field" style={{ margin: 0 }}>
+              <label>Tag / folder</label>
+              <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
+                <option value="">All tags</option>
+                {tags.map((t) => <option key={t.id} value={t.id}>{t.name}{t.count ? ` (${t.count})` : ""}</option>)}
+              </select>
+            </div>
+            <div className="field" style={{ margin: 0 }}>
               <label>From date</label>
               <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
             </div>
@@ -144,7 +208,7 @@ export default function Documents() {
               <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
             </div>
             <div style={{ display: "flex", alignItems: "flex-end" }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => { setStatus(""); setPriority(""); setProfileFilter(""); setDateFrom(""); setDateTo(""); }}>Clear filters</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setStatus(""); setPriority(""); setProfileFilter(""); setTagFilter(""); setDateFrom(""); setDateTo(""); }}>Clear filters</button>
             </div>
           </div>
         </div>
@@ -195,6 +259,9 @@ export default function Documents() {
                   {d.confidential && (
                     <span style={{ fontSize: 10, fontWeight: 700, color: "var(--danger)", textTransform: "uppercase" }}>Confidential</span>
                   )}
+                  {(d.tags || []).map((dt: any) => (
+                    <span key={dt.tag.id} className="badge" style={{ fontSize: 10, background: dt.tag.color, color: "#fff", padding: "1px 6px" }}>{dt.tag.name}</span>
+                  ))}
                 </div>
               </div>
             </div>
