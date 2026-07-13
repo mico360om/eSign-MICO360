@@ -19,6 +19,7 @@ const EVENT_LABEL: Record<string, string> = {
   REOPENED: "Reopened for edit",
   UPDATED: "Details updated",
   DELEGATED: "Delegated",
+  COMMENT: "Comment added",
 };
 
 export default function DocumentDetail() {
@@ -38,8 +39,14 @@ export default function DocumentDetail() {
   const [verify, setVerify] = useState<any>(null);
   const [pageCount, setPageCount] = useState(1);
   const [viewPdf, setViewPdf] = useState<{ kind: string; data: ArrayBuffer } | null>(null);
-  const [tab, setTab] = useState<"workflow" | "history" | "files">("workflow");
+  const [tab, setTab] = useState<"workflow" | "history" | "comments" | "files">("workflow");
+  const [thread, setThread] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState("");
+  const [noteBusy, setNoteBusy] = useState(false);
   const nav = useNavigate();
+
+  const loadComments = () =>
+    unwrap<any[]>(api.get(`/documents/${id}/comments`)).then(setThread).catch(() => {});
 
   const load = async () => {
     const d = await unwrap(api.get(`/documents/${id}`));
@@ -67,6 +74,7 @@ export default function DocumentDetail() {
       setOverlays((prev) => { prev.forEach((o) => URL.revokeObjectURL(o.imageUrl)); return []; });
     }
     unwrap(api.get(`/documents/${id}/verify`)).then(setVerify).catch(() => setVerify(null));
+    loadComments();
   };
   useEffect(() => { load(); }, [id]);
   useEffect(() => () => { setOverlays((prev) => { prev.forEach((o) => URL.revokeObjectURL(o.imageUrl)); return []; }); }, []);
@@ -225,6 +233,9 @@ export default function DocumentDetail() {
             <div className="tabs">
               <button className={tab === "workflow" ? "active" : ""} onClick={() => setTab("workflow")}>Workflow</button>
               <button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>History</button>
+              <button className={tab === "comments" ? "active" : ""} onClick={() => setTab("comments")}>
+                Comments{thread.length > 0 ? ` (${thread.length})` : ""}
+              </button>
               <button className={tab === "files" ? "active" : ""} onClick={() => setTab("files")}>Files</button>
             </div>
             <div className="card-pad">
@@ -253,6 +264,52 @@ export default function DocumentDetail() {
                   ))}
                   {(!doc.events || doc.events.length === 0) && <li className="muted" style={{ fontSize: 13 }}>No history yet.</li>}
                 </ul>
+              )}
+
+              {tab === "comments" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 320, overflowY: "auto" }}>
+                    {thread.map((c: any) => (
+                      <div key={c.id} style={{ padding: "8px 10px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8 }}>
+                        <div className="between" style={{ gap: 8 }}>
+                          <div style={{ fontSize: 12 }}>
+                            <strong>{c.author?.fullName || "Unknown user"}</strong>
+                            <span className="muted"> · {new Date(c.createdAt).toLocaleString()}</span>
+                          </div>
+                          {(c.author?.id === me?.id || can("MANAGE_PROFILES")) && (
+                            <button className="btn btn-ghost btn-sm" title="Delete comment" style={{ padding: "0 6px", lineHeight: 1.4 }}
+                              onClick={() => {
+                                if (!window.confirm("Delete this comment?")) return;
+                                unwrap(api.delete(`/documents/${id}/comments/${c.id}`))
+                                  .then(() => { toast("Comment deleted"); loadComments(); })
+                                  .catch((e) => toast(apiError(e), true));
+                              }}>✕</button>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 13, marginTop: 4, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{c.body}</div>
+                      </div>
+                    ))}
+                    {thread.length === 0 && <span className="muted" style={{ fontSize: 13 }}>No comments yet — start the discussion.</span>}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                    <textarea
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="Write a comment for everyone on this document…"
+                      rows={2}
+                      maxLength={2000}
+                      style={{ flex: 1, resize: "vertical" }}
+                    />
+                    <button className="btn btn-primary btn-sm" disabled={noteBusy || !newNote.trim()}
+                      onClick={() => {
+                        setNoteBusy(true);
+                        unwrap(api.post(`/documents/${id}/comments`, { body: newNote.trim() }))
+                          .then(() => { setNewNote(""); toast("Comment posted"); loadComments(); })
+                          .catch((e) => toast(apiError(e), true))
+                          .finally(() => setNoteBusy(false));
+                      }}>Post</button>
+                  </div>
+                </div>
               )}
 
               {tab === "files" && (

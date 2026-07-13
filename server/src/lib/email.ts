@@ -54,6 +54,11 @@ function smtpTransport(s: Record<string, string>) {
     port: num(s["smtp.port"], 587),
     secure: s["smtp.secure"] === "true",
     auth: s["smtp.user"] ? { user: s["smtp.user"], pass: s["smtp.pass"] } : undefined,
+    // Fail fast when the SMTP host is unreachable/blocked (e.g. outbound port 25
+    // firewalled) instead of hanging the request for ~20s on the OS TCP timeout.
+    connectionTimeout: num(s["smtp.timeoutMs"], 10000),
+    greetingTimeout: num(s["smtp.timeoutMs"], 10000),
+    socketTimeout: num(s["smtp.timeoutMs"], 15000),
   });
 }
 

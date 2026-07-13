@@ -143,6 +143,74 @@ router.get(
   }),
 );
 
+// ── Comments / notes thread ────────────────────────────────────────────────
+// A discussion on the document, separate from approval-decision remarks
+// (ApprovalStep.comment) and the system history (DocumentEvent).
+
+const commentInclude = { author: { select: { id: true, fullName: true } } } as const;
+
+router.get(
+  "/:id/comments",
+  asyncHandler(async (req, res) => {
+    await fetchVisible(req.user!.id, req.params.id, hasPermission(req, "MANAGE_PROFILES"));
+    const comments = await prisma.documentComment.findMany({
+      where: { documentId: req.params.id },
+      orderBy: { createdAt: "asc" },
+      include: commentInclude,
+    });
+    ok(res, comments);
+  }),
+);
+
+const commentSchema = z.object({ body: z.string().trim().min(1, "Comment cannot be empty").max(2000) });
+
+router.post(
+  "/:id/comments",
+  asyncHandler(async (req, res) => {
+    const doc = await fetchVisible(req.user!.id, req.params.id, hasPermission(req, "MANAGE_PROFILES"));
+    const { body } = commentSchema.parse(req.body);
+
+    const comment = await prisma.documentComment.create({
+      data: { documentId: doc.id, authorId: req.user!.id, body },
+      include: commentInclude,
+    });
+
+    await docEvent(doc.id, "COMMENT", req.user!.id, body.length > 200 ? `${body.slice(0, 200)}…` : body);
+    await audit({ actorId: req.user!.id, action: "DOCUMENT_COMMENT", entity: "Document", entityId: doc.id });
+
+    // Notify everyone involved (uploader + all workflow signatories) except the author.
+    const steps = await prisma.approvalStep.findMany({ where: { documentId: doc.id }, select: { signatoryId: true } });
+    const participants = [doc.uploadedById, ...steps.map((s) => s.signatoryId)].filter((u) => u !== req.user!.id);
+    if (participants.length) {
+      await notifyMany(participants, {
+        type: "COMMENT_ADDED",
+        title: `New comment on "${doc.title}"`,
+        body: `${comment.author.fullName}: ${body.length > 140 ? `${body.slice(0, 140)}…` : body}`,
+        link: `/documents/${doc.id}`,
+      });
+    }
+    ok(res, comment);
+  }),
+);
+
+// Authors can delete their own comment; profile admins can moderate any.
+router.delete(
+  "/:id/comments/:commentId",
+  asyncHandler(async (req, res) => {
+    await fetchVisible(req.user!.id, req.params.id, hasPermission(req, "MANAGE_PROFILES"));
+    const comment = await prisma.documentComment.findFirst({
+      where: { id: req.params.commentId, documentId: req.params.id },
+    });
+    if (!comment) throw notFound("Comment not found");
+    if (comment.authorId !== req.user!.id && !hasPermission(req, "MANAGE_PROFILES"))
+      throw forbidden("You can only delete your own comments");
+
+    await prisma.documentComment.delete({ where: { id: comment.id } });
+    await audit({ actorId: req.user!.id, action: "DOCUMENT_COMMENT_DELETED", entity: "Document", entityId: req.params.id });
+    ok(res, { deleted: true });
+  }),
+);
+
 // Integrity verification: recompute SHA-256 of the stored files and compare to
 // the hashes captured at upload/finalize, and report digital-signature status.
 router.get(
