@@ -11,7 +11,9 @@ router.use(authenticate);
 
 // Keys that must never be sent to the client (the admin UI edits them blind via
 // a "(unchanged)" placeholder, so their real value is never needed there either).
-const SECRET_SETTING_KEYS = ["smtp.pass", "mailjet.apiSecret"];
+// smtp.user / mailjet.apiKey are included because for Mailjet the SMTP username
+// IS the API key — half of the credential pair.
+const SECRET_SETTING_KEYS = ["smtp.pass", "mailjet.apiSecret", "smtp.user", "mailjet.apiKey"];
 
 // Anyone authenticated may READ settings (clients need upload rules, the idle
 // auto-logout interval, etc.). Secret values are redacted.

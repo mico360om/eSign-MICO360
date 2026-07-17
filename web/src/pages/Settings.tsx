@@ -54,12 +54,12 @@ const SETTING_GROUPS: Group[] = [
       // ── SMTP ──
       { key: "smtp.host",                  label: "SMTP Host",                        hint: "e.g. smtp.gmail.com", showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
       { key: "smtp.port",                  label: "SMTP Port",                        type: "number", hint: "587 (TLS) or 465 (SSL)", showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
-      { key: "smtp.user",                  label: "SMTP Username",                    hint: "Usually your full email address", showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
+      { key: "smtp.user",                  label: "SMTP Username",                    type: "password", hint: "Usually your full email address", showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
       { key: "smtp.pass",                  label: "SMTP Password",                    type: "password", showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
       { key: "smtp.secure",               label: "Use Secure SMTP (SSL)",             type: "bool", showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
       { key: "smtp.from",                  label: "Sender Email (From address)",      hint: 'e.g. eSign MICO360 <noreply@company.com>', wide: true, showIf: (s) => (s["email.provider"] || "smtp") === "smtp" },
       // ── Mailjet ──
-      { key: "mailjet.apiKey",             label: "Mailjet API Key",                  hint: "Mailjet → Account → API Key Management", showIf: (s) => s["email.provider"] === "mailjet" },
+      { key: "mailjet.apiKey",             label: "Mailjet API Key",                  type: "password", hint: "Mailjet → Account → API Key Management", showIf: (s) => s["email.provider"] === "mailjet" },
       { key: "mailjet.apiSecret",          label: "Mailjet Secret Key",               type: "password", showIf: (s) => s["email.provider"] === "mailjet" },
       { key: "mailjet.fromEmail",          label: "Sender Email",                     hint: "Must be a verified sender in Mailjet", showIf: (s) => s["email.provider"] === "mailjet" },
       { key: "mailjet.fromName",           label: "Sender Name",                      showIf: (s) => s["email.provider"] === "mailjet" },

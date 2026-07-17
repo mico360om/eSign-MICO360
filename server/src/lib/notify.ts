@@ -1,7 +1,7 @@
 import { NotificationType } from "../constants";
 import { prisma } from "./prisma";
 import { getSettings } from "./settings";
-import { sendEmail } from "./email";
+import { escapeHtml, sendEmail } from "./email";
 import { sendPush } from "./push";
 
 /**
@@ -24,7 +24,9 @@ export async function notify(params: {
     if (user) {
       const s = await getSettings();
       if (s["notifications.email"] === "true" && user.email) {
-        void sendEmail(user.email, `[eSign MICO360] ${params.title}`, `<p>${params.body ?? params.title}</p>`);
+        // Titles/bodies contain user input (document titles, comments) — escape
+        // so crafted content can't inject HTML into recipients' emails.
+        void sendEmail(user.email, `[eSign MICO360] ${params.title}`, `<p>${escapeHtml(params.body ?? params.title)}</p>`);
       }
       if (user.pushToken) void sendPush(user, params.title, params.body ?? "");
     }

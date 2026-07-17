@@ -1,16 +1,30 @@
 import nodemailer from "nodemailer";
 import { getSettings, num } from "./settings";
 
+/** Escape user-supplied text before interpolating it into email HTML. */
+export const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+// In-memory logs are hard-capped so unauthenticated inputs (e.g. the Mailjet
+// webhook) can't grow server memory without bound.
+const MEM_LOG_CAP = 200;
+
 // Recent emails (real or simulated) for inspection/testing via /api/admin/outbox.
 const outbox: { to: string; subject: string; at: string; simulated: boolean; provider: string }[] = [];
 export const getEmailOutbox = () => outbox.slice(-50).reverse();
+const pushOutbox = (e: (typeof outbox)[number]) => {
+  outbox.push(e);
+  if (outbox.length > MEM_LOG_CAP) outbox.splice(0, outbox.length - MEM_LOG_CAP);
+};
 
 // Failed email sends + Mailjet bounce/blocked events, surfaced on the dashboard.
 const failures: { to: string; subject: string; at: string; error: string }[] = [];
 export const getEmailFailures = () => failures.slice(-50).reverse();
 export const getEmailFailureCount = () => failures.length;
-export const recordEmailFailure = (to: string, subject: string, error: string) =>
+export const recordEmailFailure = (to: string, subject: string, error: string) => {
   failures.push({ to, subject, at: new Date().toISOString(), error });
+  if (failures.length > MEM_LOG_CAP) failures.splice(0, failures.length - MEM_LOG_CAP);
+};
 
 function provider(s: Record<string, string>) {
   return (s["email.provider"] || "smtp").toLowerCase();
@@ -83,7 +97,7 @@ export async function sendEmail(to: string, subject: string, html: string) {
     }
     // When not configured we "simulate": capture without sending, so the app
     // still runs (and is testable) without email credentials.
-    outbox.push({ to, subject, at: new Date().toISOString(), simulated: !configured, provider: provider(s) });
+    pushOutbox({ to, subject, at: new Date().toISOString(), simulated: !configured, provider: provider(s) });
   } catch (e: any) {
     recordEmailFailure(to, subject, String(e?.message || e));
   }
@@ -102,6 +116,6 @@ export async function sendTestEmail(to: string): Promise<{ simulated: boolean; p
     if (provider(s) === "smtp") await smtpTransport(s).verify(); // surfaces auth/host/port problems
     await deliver(s, to, "eSign MICO360 — test email", html);
   }
-  outbox.push({ to, subject: "eSign MICO360 — test email", at: new Date().toISOString(), simulated, provider: provider(s) });
+  pushOutbox({ to, subject: "eSign MICO360 — test email", at: new Date().toISOString(), simulated, provider: provider(s) });
   return { simulated, provider: provider(s) };
 }

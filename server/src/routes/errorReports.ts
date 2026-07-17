@@ -17,14 +17,15 @@ router.post(
   "/report",
   reportLimiter,
   asyncHandler(async (req, res) => {
+    // Length caps: this endpoint is unauthenticated, so bound what it will store.
     const body = z
       .object({
-        message: z.string().min(1),
-        stack: z.string().optional(),
-        url: z.string().optional(),
-        userEmail: z.string().optional(),
-        userId: z.string().optional(),
-        appVersion: z.string().optional(),
+        message: z.string().min(1).max(2000),
+        stack: z.string().max(20000).optional(),
+        url: z.string().max(500).optional(),
+        userEmail: z.string().max(200).optional(),
+        userId: z.string().max(64).optional(),
+        appVersion: z.string().max(50).optional(),
       })
       .parse(req.body);
     await recordError({

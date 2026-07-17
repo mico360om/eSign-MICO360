@@ -47,12 +47,20 @@ export function createApp() {
     }),
   );
   app.use(express.json({ limit: "5mb" }));
+  // The mobile app passes ?token= for external PDF viewers — mask it in access
+  // logs so bearer tokens never land in log files.
+  morgan.token("url", (req: any) => String(req.originalUrl || req.url).replace(/([?&]token=)[^&]*/g, "$1***"));
   app.use(morgan(env.nodeEnv === "development" ? "dev" : "combined"));
 
   // Capture caller IP + device for the audit log (read via AsyncLocalStorage).
-  app.set("trust proxy", true);
+  // X-Forwarded-For is client-controlled, so it is only honored when the server
+  // is explicitly declared to be behind a proxy (TRUST_PROXY=true) — otherwise
+  // anyone could falsify the IP recorded in the tamper-evident audit trail.
+  const behindProxy = process.env.TRUST_PROXY === "true";
+  app.set("trust proxy", behindProxy);
   app.use((req, _res, next) => {
-    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || req.socket.remoteAddress || "";
+    const forwarded = behindProxy ? (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() : "";
+    const ip = forwarded || req.socket.remoteAddress || req.ip || "";
     const device = (req.headers["user-agent"] as string) || "";
     requestContext.run({ ip, device }, () => next());
   });
